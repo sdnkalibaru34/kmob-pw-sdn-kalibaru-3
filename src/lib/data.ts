@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import type { Attendance, AttendanceStatus, DailyReport, Employee } from './types';
+import type { Attendance, AttendanceStatus, DailyReport, Employee, ShiftLabel } from './types';
 
 export async function currentEmployee(): Promise<Employee> {
   const { data: userData, error: userError } = await supabase.auth.getUser();
@@ -10,7 +10,7 @@ export async function currentEmployee(): Promise<Employee> {
 }
 
 export async function saveAttendance(input: {
-  date: string; checkIn: string; checkOut: string; shiftLabel: 'Pagi' | 'Siang'; status: AttendanceStatus; note: string;
+  date: string; checkIn: string; checkOut: string; shiftLabel: ShiftLabel; status: AttendanceStatus; note: string;
 }) {
   const employee = await currentEmployee();
   const { error } = await supabase.from('attendance').upsert({
@@ -22,6 +22,19 @@ export async function saveAttendance(input: {
     status: input.status,
     note: input.note.trim() || null,
   }, { onConflict: 'employee_id,attendance_date' });
+  if (error) throw error;
+}
+
+export async function ownDefaultShift(): Promise<ShiftLabel> {
+  const employee = await currentEmployee();
+  const { data, error } = await supabase.from('employee_shift_preferences').select('default_shift').eq('employee_id', employee.id).single();
+  if (error || !data) throw new Error('Shift utama belum dapat dimuat.');
+  return data.default_shift as ShiftLabel;
+}
+
+export async function updateOwnDefaultShift(defaultShift: ShiftLabel) {
+  const employee = await currentEmployee();
+  const { error } = await supabase.from('employee_shift_preferences').update({ default_shift: defaultShift, updated_at: new Date().toISOString() }).eq('employee_id', employee.id);
   if (error) throw error;
 }
 
