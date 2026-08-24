@@ -15,6 +15,11 @@ export type Attendance = {
   attendance_date: string;
   check_in: string | null;
   check_out: string | null;
+  shift_label: 'Pagi' | 'Siang';
+  scheduled_start: string | null;
+  scheduled_end: string | null;
+  late_minutes: number;
+  early_leave_minutes: number;
   status: AttendanceStatus;
   note: string | null;
   updated_at: string;
