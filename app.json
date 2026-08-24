@@ -1,0 +1,19 @@
+{
+  "expo": {
+    "name": "MBOK PPPK PW",
+    "slug": "mbok-pppk-pw",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "mbok",
+    "userInterfaceStyle": "automatic",
+    "android": {
+      "package": "id.sch.sdnkalibaru3.mbokpppkpw"
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static"
+    },
+    "plugins": ["expo-router"]
+  }
+}
+
