@@ -10,7 +10,7 @@ export async function currentEmployee(): Promise<Employee> {
 }
 
 export async function saveAttendance(input: {
-  date: string; checkIn: string; checkOut: string; status: AttendanceStatus; note: string;
+  date: string; checkIn: string; checkOut: string; shiftLabel: 'Pagi' | 'Siang'; status: AttendanceStatus; note: string;
 }) {
   const employee = await currentEmployee();
   const { error } = await supabase.from('attendance').upsert({
@@ -18,6 +18,7 @@ export async function saveAttendance(input: {
     attendance_date: input.date,
     check_in: input.checkIn || null,
     check_out: input.checkOut || null,
+    shift_label: input.shiftLabel,
     status: input.status,
     note: input.note.trim() || null,
   }, { onConflict: 'employee_id,attendance_date' });
