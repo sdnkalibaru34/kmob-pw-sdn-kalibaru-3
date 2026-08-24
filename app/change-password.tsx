@@ -12,7 +12,10 @@ export default function ChangePassword() {
     if (password.length < 10) return setMessage('Gunakan minimal 10 karakter.');
     if (password !== confirm) return setMessage('Konfirmasi kata sandi tidak sama.');
     setBusy(true);
-    const { error } = await supabase.auth.updateUser({ password });
+    const { error } = await supabase.auth.updateUser({
+      password,
+      data: { must_change_password: false },
+    });
     setBusy(false);
     if (error) return setMessage('Kata sandi belum dapat diubah. Coba kembali.');
     await supabase.auth.signOut({ scope: 'others' });
