@@ -10,6 +10,8 @@ MBOK PPPK PW adalah aplikasi absensi PPPK Paruh Waktu SDN Kalibaru 3. Aplikasi p
 - Laporan kegiatan harian per pegawai
 - Rekap bulanan seluruh pegawai untuk admin
 - Sinkronisasi ke Google Spreadsheet
+- Kebijakan privasi dan penegasan bukan aplikasi resmi KMOB
+- Penggantian kata sandi mandiri
 
 ## Menjalankan
 
@@ -19,4 +21,3 @@ Salin `.env.example` menjadi `.env`, isi URL dan publishable key Supabase, lalu 
 npm install
 npm run start
 ```
-
