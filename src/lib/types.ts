@@ -1,6 +1,8 @@
 export type AttendanceStatus =
   | 'Hadir' | 'Izin' | 'Sakit' | 'Cuti' | 'Dinas Luar' | 'Tanpa Keterangan';
 
+export type ShiftLabel = 'Pagi' | 'Siang';
+
 export type Employee = {
   id: string;
   employee_code: string;
@@ -15,7 +17,7 @@ export type Attendance = {
   attendance_date: string;
   check_in: string | null;
   check_out: string | null;
-  shift_label: 'Pagi' | 'Siang';
+  shift_label: ShiftLabel;
   scheduled_start: string | null;
   scheduled_end: string | null;
   late_minutes: number;
