@@ -13,7 +13,7 @@ export default function Login() {
     const { data, error } = await supabase.auth.signInWithPassword({ email: employeeCodeToInternalEmail(code), password });
     setBusy(false);
     if (error || !data.user) return setMessage('NI PPPK/kode pegawai atau kata sandi tidak sesuai.');
-    router.replace('/home');
+    router.replace(data.user.user_metadata?.must_change_password ? '/change-password' : '/home');
   };
   return <View style={s.page}><View style={s.card}>
     <Text style={s.brand}>MBOK</Text><Text style={s.title}>PPPK Paruh Waktu</Text>
