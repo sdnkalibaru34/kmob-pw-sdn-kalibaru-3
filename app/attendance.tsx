@@ -1,11 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { jakartaDate, jakartaTime, validDate, validTime } from '@/lib/date';
-import { saveAttendance } from '@/lib/data';
-import type { AttendanceStatus } from '@/lib/types';
+import { ownDefaultShift, saveAttendance } from '@/lib/data';
+import type { AttendanceStatus, ShiftLabel } from '@/lib/types';
 
 const statuses: AttendanceStatus[]=['Hadir','Izin','Sakit','Cuti','Dinas Luar','Tanpa Keterangan'];
-type ShiftLabel='Pagi'|'Siang';
 
 function scheduleFor(date:string,shift:ShiftLabel){
   if(!validDate(date)) return null;
@@ -23,6 +22,7 @@ export default function Attendance(){
   const [note,setNote]=useState('');
   const [message,setMessage]=useState('');
   const [busy,setBusy]=useState(false);
+  useEffect(()=>{void ownDefaultShift().then(setShiftLabel).catch(()=>setMessage('Shift utama belum dapat dimuat; sementara dipilih Pagi.'))},[]);
   const save=async()=>{
     if(!validDate(date)) return setMessage('Tanggal harus berformat YYYY-MM-DD.');
     if(!scheduleFor(date,shiftLabel)) return setMessage('Minggu bukan hari kerja. Pilih tanggal Senin–Sabtu.');
