@@ -9,3 +9,23 @@ export type Employee = {
   ni_pppk: string | null;
 };
 
+export type Attendance = {
+  id: string;
+  employee_id: string;
+  attendance_date: string;
+  check_in: string | null;
+  check_out: string | null;
+  status: AttendanceStatus;
+  note: string | null;
+  updated_at: string;
+};
+
+export type DailyReport = {
+  id: string;
+  employee_id: string;
+  report_date: string;
+  activity: string;
+  result: string | null;
+  note: string | null;
+  updated_at: string;
+};
