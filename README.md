@@ -12,6 +12,7 @@ MBOK PPPK PW adalah aplikasi absensi PPPK Paruh Waktu SDN Kalibaru 3. Aplikasi p
 - Sinkronisasi ke Google Spreadsheet
 - Kebijakan privasi dan penegasan bukan aplikasi resmi KMOB
 - Penggantian kata sandi mandiri
+- Dashboard admin khusus web untuk rekap bulanan dan laporan harian
 
 ## Menjalankan
 
