@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useLocalSearchParams } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { jakartaDate, jakartaTime, validDate, validTime } from '@/lib/date';
-import { ownDefaultShift, saveAttendance } from '@/lib/data';
+import { ownAttendance, ownDefaultShift, saveAttendance } from '@/lib/data';
 import type { AttendanceStatus, ShiftLabel } from '@/lib/types';
 
 const statuses: AttendanceStatus[]=['Hadir','Izin','Sakit','Cuti','Dinas Luar','Tanpa Keterangan'];
@@ -14,15 +15,31 @@ function scheduleFor(date:string,shift:ShiftLabel){
   return shift==='Pagi'?'06:30–14:30':'09:00–17:00';
 }
 export default function Attendance(){
-  const [date,setDate]=useState(jakartaDate());
-  const [checkIn,setCheckIn]=useState(jakartaTime());
+  const params=useLocalSearchParams<{date?:string}>();
+  const initialDate=typeof params.date==='string'&&validDate(params.date)?params.date:jakartaDate();
+  const [date,setDate]=useState(initialDate);
+  const [checkIn,setCheckIn]=useState(initialDate===jakartaDate()?jakartaTime():'');
   const [checkOut,setCheckOut]=useState('');
   const [shiftLabel,setShiftLabel]=useState<ShiftLabel>('Pagi');
   const [status,setStatus]=useState<AttendanceStatus>('Hadir');
   const [note,setNote]=useState('');
   const [message,setMessage]=useState('');
   const [busy,setBusy]=useState(false);
+  const loadSequence=useRef(0);
   useEffect(()=>{void ownDefaultShift().then(setShiftLabel).catch(()=>setMessage('Shift utama belum dapat dimuat; sementara dipilih Pagi.'))},[]);
+  useEffect(()=>{
+    if(!validDate(date))return;
+    const sequence=++loadSequence.current;
+    void ownAttendance(date,date).then(rows=>{
+      if(sequence!==loadSequence.current)return;
+      const existing=rows[0];
+      if(existing){
+        setCheckIn(existing.check_in?.slice(0,5)??'');setCheckOut(existing.check_out?.slice(0,5)??'');setShiftLabel(existing.shift_label);setStatus(existing.status);setNote(existing.note??'');setMessage('Data tanggal ini sudah ada dan dapat diperbarui.');
+      }else{
+        setCheckIn(date===jakartaDate()?jakartaTime():'');setCheckOut('');setStatus('Hadir');setNote('');setMessage('Belum ada absensi pada tanggal ini. Silakan lengkapi lalu simpan.');
+      }
+    }).catch(()=>{if(sequence===loadSequence.current)setMessage('Data absensi tanggal ini belum dapat dimuat.')});
+  },[date]);
   const save=async()=>{
     if(!validDate(date)) return setMessage('Tanggal harus berformat YYYY-MM-DD.');
     if(!scheduleFor(date,shiftLabel)) return setMessage('Minggu bukan hari kerja. Pilih tanggal Senin–Sabtu.');
