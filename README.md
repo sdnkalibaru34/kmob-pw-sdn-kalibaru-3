@@ -1,6 +1,6 @@
-# MBOK PPPK PW
+# KEMOB KW
 
-MBOK PPPK PW adalah aplikasi absensi PPPK Paruh Waktu SDN Kalibaru 3. Aplikasi pegawai berjalan di Android, sedangkan pengelolaan dan rekap seluruh pegawai tersedia melalui dashboard web admin.
+KEMOB KW adalah aplikasi absensi PPPK Paruh Waktu SDN Kalibaru 3. Aplikasi pegawai berjalan di Android, sedangkan pengelolaan dan rekap seluruh pegawai tersedia melalui dashboard web admin.
 
 ## Fitur inti
 
@@ -13,6 +13,8 @@ MBOK PPPK PW adalah aplikasi absensi PPPK Paruh Waktu SDN Kalibaru 3. Aplikasi p
 - Kebijakan privasi dan penegasan bukan aplikasi resmi KMOB
 - Penggantian kata sandi mandiri
 - Dashboard admin khusus web untuk rekap bulanan dan laporan harian
+
+Sinkronisasi Google Sheets dijalankan oleh Supabase Edge Function. Kredensial Google wajib disimpan sebagai Supabase project secrets dan tidak boleh dimasukkan ke aplikasi atau repo. Petunjuknya ada di `supabase/functions/sync-google-sheets/README.md`.
 
 ## Menjalankan
 
