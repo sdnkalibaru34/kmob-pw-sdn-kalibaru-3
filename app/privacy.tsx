@@ -4,8 +4,8 @@ const Section=({title,children}:{title:string;children:React.ReactNode})=><View 
 export default function Privacy(){
   return <ScrollView style={s.page} contentContainerStyle={s.content}>
     <Text style={s.title}>Kebijakan Privasi</Text>
-    <Text style={s.updated}>MBOK PPPK PW · SDN Kalibaru 3 · diperbarui 27 Agustus 2026</Text>
-    <Section title="Tentang aplikasi">MBOK PPPK PW adalah aplikasi internal untuk absensi dan laporan kegiatan PPPK Paruh Waktu SDN Kalibaru 3. Aplikasi ini bukan aplikasi resmi KMOB dan tidak berafiliasi dengan pengelola KMOB.</Section>
+    <Text style={s.updated}>KEMOB KW · SDN Kalibaru 3 · diperbarui 27 Agustus 2026</Text>
+    <Section title="Tentang aplikasi">KEMOB KW adalah aplikasi internal untuk absensi dan laporan kegiatan PPPK Paruh Waktu SDN Kalibaru 3. Aplikasi ini bukan aplikasi resmi KMOB dan tidak berafiliasi dengan pengelola KMOB.</Section>
     <Section title="Data yang diperlukan">Aplikasi memproses nama, jabatan, NI PPPK atau kode pegawai, identitas akun internal, pilihan shift, tanggal dan waktu absensi, status kehadiran, catatan, serta laporan kegiatan harian. Data ini diperlukan agar fungsi absensi, koreksi, rekap, dan pelaporan dapat digunakan.</Section>
     <Section title="Tujuan penggunaan">Data digunakan hanya untuk pencatatan kehadiran, pemeriksaan kelengkapan absensi, penyusunan rekap bulanan, dan laporan administrasi kepegawaian sekolah.</Section>
     <Section title="Akses data">Pegawai hanya dapat melihat dan mengubah datanya sendiri. Admin yang ditunjuk sekolah dapat mengelola serta melihat rekap semua pegawai. Saat ini admin adalah Dovy Wahyu Widhiarta dan Rosadi, SE.</Section>
