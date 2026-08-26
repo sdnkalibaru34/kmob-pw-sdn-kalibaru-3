@@ -16,7 +16,7 @@ export default function Login() {
     router.replace(data.user.user_metadata?.must_change_password ? '/change-password' : '/home');
   };
   return <View style={s.page}><View style={s.card}>
-    <Text style={s.brand}>MBOK</Text><Text style={s.title}>PPPK Paruh Waktu</Text>
+    <Text style={s.brand}>KEMOB KW</Text><Text style={s.title}>PPPK Paruh Waktu</Text>
     <TextInput style={s.input} placeholder="NI PPPK / kode pegawai" value={code} onChangeText={setCode} autoCapitalize="none" />
     <TextInput style={s.input} placeholder="Kata sandi" value={password} onChangeText={setPassword} secureTextEntry />
     {!!message && <Text style={s.error}>{message}</Text>}
