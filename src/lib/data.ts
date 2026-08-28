@@ -50,21 +50,40 @@ export async function recordCheckOut(date: string, shiftLabel: ShiftLabel, check
 }
 
 export async function submitAbsenceRequest(input: {
-  date: string; status: Exclude<AttendanceStatus, 'Hadir' | 'Tanpa Keterangan'>; note: string; shiftLabel: ShiftLabel;
+  startDate: string; endDate: string; status: Exclude<AttendanceStatus, 'Hadir' | 'Tanpa Keterangan'>; note: string; shiftLabel: ShiftLabel;
 }) {
   const employee = await currentEmployee();
-  const existing = await ownAttendance(input.date, input.date);
-  if (existing[0]?.check_in || existing[0]?.check_out) throw new Error('Tanggal ini sudah memiliki data absensi.');
-  const { error } = await supabase.from('attendance').upsert({
-    employee_id: employee.id,
-    attendance_date: input.date,
-    check_in: null,
-    check_out: null,
-    shift_label: input.shiftLabel,
-    status: input.status,
-    note: input.note.trim(),
-  }, { onConflict: 'employee_id,attendance_date' });
+  const dates = (await workCalendar(input.startDate, input.endDate)).map(row => row.work_date);
+  if (!dates.length) throw new Error('Rentang ini tidak memiliki hari kerja.');
+  const existing = await ownAttendance(input.startDate, input.endDate);
+  if (existing.some(row => row.check_in || row.check_out)) throw new Error('Sebagian rentang sudah memiliki data absensi.');
+  const { error } = await supabase.from('attendance').upsert(dates.map(date => ({
+    employee_id: employee.id, attendance_date: date, check_in: null, check_out: null,
+    shift_label: input.shiftLabel, status: input.status, note: input.note.trim(),
+  })), { onConflict: 'employee_id,attendance_date' });
   if (error) throw error;
+  return dates.length;
+}
+
+export async function ownProfilePhotoUrl(): Promise<string | null> {
+  const { data: userData } = await supabase.auth.getUser();
+  if (!userData.user) return null;
+  const { data } = await supabase.from('profile_photos').select('avatar_path').eq('user_id', userData.user.id).maybeSingle();
+  if (!data?.avatar_path) return null;
+  const { data: signed } = await supabase.storage.from('profile-photos').createSignedUrl(data.avatar_path, 3600);
+  return signed?.signedUrl ?? null;
+}
+
+export async function saveOwnProfilePhoto(bytes: ArrayBuffer, contentType: string) {
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  if (userError || !userData.user) throw new Error('Sesi login tidak ditemukan.');
+  const extension = contentType === 'image/png' ? 'png' : contentType === 'image/webp' ? 'webp' : 'jpg';
+  const path = `${userData.user.id}/profile.${extension}`;
+  const { error: uploadError } = await supabase.storage.from('profile-photos').upload(path, bytes, { contentType, upsert: true });
+  if (uploadError) throw uploadError;
+  const { error } = await supabase.from('profile_photos').upsert({ user_id: userData.user.id, avatar_path: path, updated_at: new Date().toISOString() });
+  if (error) throw error;
+  return ownProfilePhotoUrl();
 }
 
 export async function ownDefaultShift(): Promise<ShiftLabel> {

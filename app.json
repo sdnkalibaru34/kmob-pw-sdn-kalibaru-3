@@ -2,14 +2,14 @@
   "expo": {
     "name": "KEMOB KW",
     "slug": "mbok-pppk-pw",
-    "version": "0.2.1",
+    "version": "0.2.2",
     "icon": "./assets/icon.png",
     "orientation": "portrait",
     "scheme": "mbok",
     "userInterfaceStyle": "automatic",
     "android": {
       "package": "id.sch.sdnkalibaru3.mbokpppkpw",
-      "versionCode": 3,
+      "versionCode": 4,
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#064E3B"
@@ -34,6 +34,14 @@
       "bundler": "metro",
       "output": "static"
     },
-    "plugins": ["expo-router", "@react-native-community/datetimepicker"]
+    "plugins": [
+      "expo-router",
+      "@react-native-community/datetimepicker",
+      ["expo-image-picker", {
+        "photosPermission": "Izinkan KEMOB KW memilih foto yang Anda jadikan foto profil.",
+        "cameraPermission": false,
+        "microphonePermission": false
+      }]
+    ]
   }
 }
