@@ -114,8 +114,8 @@ Deno.serve(async (req) => {
     const shiftByEmployee = new Map((shiftsResult.data ?? []).map((shift) => [shift.employee_id, shift.default_shift]));
     const attendance = attendanceResult.data ?? [];
     const reports = reportsResult.data ?? [];
-    const elapsedWorkdays = (calendarResult.data ?? []).filter((day) => day.is_workday && day.work_date >= from && day.work_date <= to && day.work_date <= today).length;
-    const statuses = ["Hadir", "Izin", "Sakit", "Cuti", "Dinas Luar", "Tanpa Keterangan"];
+    const elapsedWorkdayDates = (calendarResult.data ?? []).filter((day) => day.is_workday && day.work_date >= from && day.work_date <= to && day.work_date < today).map((day) => day.work_date);
+    const absenceStatuses = ["Izin", "Sakit", "Cuti", "Dinas Luar"];
 
     const sheets: Record<string, unknown[][]> = {
       "MASTER PEGAWAI": [
@@ -127,16 +127,17 @@ Deno.serve(async (req) => {
         ...(calendarResult.data ?? []).map((day) => [day.work_date, day.is_workday ? "Ya" : "Tidak", day.description ?? ""]),
       ],
       "ABSENSI HARIAN": [
-        ["Tanggal", "Kode", "Nama", "Jabatan", "NI PPPK", "Shift", "Jam Masuk", "Jam Pulang", "Jadwal Masuk", "Jadwal Pulang", "Terlambat (menit)", "Pulang Cepat (menit)", "Status", "Catatan", "Diperbarui"],
-        ...attendance.map((row) => { const employee = employeeById.get(row.employee_id); return [row.attendance_date, employee?.employee_code ?? "", employee?.full_name ?? "", employee?.position ?? "", employee?.ni_pppk ?? "-", row.shift_label, row.check_in ?? "", row.check_out ?? "", row.scheduled_start ?? "", row.scheduled_end ?? "", row.late_minutes, row.early_leave_minutes, row.status, row.note ?? "", row.updated_at]; }),
+        ["Tanggal", "Kode", "Nama", "Jabatan", "NI PPPK", "Shift", "Jam Masuk", "Jam Pulang", "Jadwal Masuk", "Jadwal Pulang", "Hasil Masuk", "Hasil Pulang", "Pengajuan Tidak Hadir", "Catatan", "Diperbarui"],
+        ...attendance.map((row) => { const employee = employeeById.get(row.employee_id); return [row.attendance_date, employee?.employee_code ?? "", employee?.full_name ?? "", employee?.position ?? "", employee?.ni_pppk ?? "-", row.shift_label, row.check_in ?? "", row.check_out ?? "", row.scheduled_start ?? "", row.scheduled_end ?? "", row.check_in ? (row.late_minutes > 0 ? `Terlambat ${row.late_minutes} menit` : "Tepat waktu") : "", row.check_out ? (row.early_leave_minutes > 0 ? `Terlalu cepat ${row.early_leave_minutes} menit` : "Tepat waktu") : "", absenceStatuses.includes(row.status) ? row.status : "", row.note ?? "", row.updated_at]; }),
       ],
       "REKAP BULANAN": [
-        ["Bulan", "Kode", "Nama", "Jabatan", "NI PPPK", "Hari Kerja s.d. Hari Ini", ...statuses, "Sudah Diisi", "Belum Absen", "Persentase Kehadiran"],
+        ["Bulan", "Kode", "Nama", "Jabatan", "NI PPPK", "Hari Kerja Berlalu", "Absen Masuk", ...absenceStatuses, "Tanpa Keterangan", "Persentase Kehadiran"],
         ...employees.filter((employee) => employee.is_active).map((employee) => {
           const rows = attendance.filter((row) => row.employee_id === employee.id);
-          const filled = new Set(rows.filter((row) => row.attendance_date <= today).map((row) => row.attendance_date)).size;
-          const present = rows.filter((row) => row.status === "Hadir" && row.attendance_date <= today).length;
-          return [month, employee.employee_code, employee.full_name, employee.position, employee.ni_pppk ?? "-", elapsedWorkdays, ...statuses.map((status) => rows.filter((row) => row.status === status && row.attendance_date <= today).length), filled, Math.max(0, elapsedWorkdays - filled), elapsedWorkdays ? present / elapsedWorkdays : 0];
+          const covered = new Set(rows.filter((row) => row.check_in || absenceStatuses.includes(row.status)).map((row) => row.attendance_date));
+          const present = rows.filter((row) => !!row.check_in && row.attendance_date < today).length;
+          const missing = elapsedWorkdayDates.filter((date) => !covered.has(date)).length;
+          return [month, employee.employee_code, employee.full_name, employee.position, employee.ni_pppk ?? "-", elapsedWorkdayDates.length, present, ...absenceStatuses.map((status) => rows.filter((row) => row.status === status && row.attendance_date < today).length), missing, elapsedWorkdayDates.length ? present / elapsedWorkdayDates.length : 0];
         }),
       ],
       "LAPORAN HARIAN": [

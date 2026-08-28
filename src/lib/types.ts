@@ -1,5 +1,5 @@
-export type AttendanceStatus =
-  | 'Hadir' | 'Izin' | 'Sakit' | 'Cuti' | 'Dinas Luar' | 'Tanpa Keterangan';
+export type AbsenceStatus = 'Izin' | 'Sakit' | 'Cuti' | 'Dinas Luar';
+export type AttendanceStatus = 'Hadir' | AbsenceStatus | 'Tanpa Keterangan';
 
 export type ShiftLabel = 'Pagi' | 'Siang';
 

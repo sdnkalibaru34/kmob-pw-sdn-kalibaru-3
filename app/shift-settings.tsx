@@ -10,7 +10,7 @@ export default function ShiftSettings(){
   const [message,setMessage]=useState('');
   useEffect(()=>{void ownDefaultShift().then(setShift).catch(()=>setMessage('Shift utama belum dapat dimuat.')).finally(()=>setBusy(false))},[]);
   const save=async()=>{setBusy(true);setMessage('');try{await updateOwnDefaultShift(shift);setMessage(`Shift utama berhasil diubah menjadi ${shift}.`) }catch{setMessage('Shift utama belum dapat diubah. Coba kembali.')}finally{setBusy(false)}};
-  return <View style={s.page}><Text style={s.title}>Shift Saya</Text><Text style={s.info}>Shift ini otomatis dipilih saat membuka form absensi. Perubahan tidak mengubah riwayat absensi yang sudah tersimpan.</Text>
+  return <View style={s.page}><Text style={s.title}>Shift Saya</Text><Text style={s.info}>Shift ini menjadi acuan jam masuk, jam pulang, keterlambatan, dan pulang terlalu cepat. Perubahan tidak mengubah riwayat absensi yang sudah tersimpan.</Text>
     <View style={s.row}>{shifts.map(x=><Pressable key={x} style={[s.choice,shift===x&&s.choiceOn]} onPress={()=>setShift(x)}><Text style={shift===x?s.textOn:s.text}>{x}</Text></Pressable>)}</View>
     <Text style={s.schedule}>{shift==='Pagi'?'Senin–Jumat 06.30–14.30 · Sabtu 06.30–11.30':'Senin–Jumat 09.00–17.00 · Sabtu 09.00–14.00'}</Text>
     {!!message&&<Text style={s.message}>{message}</Text>}<Pressable disabled={busy} style={s.button} onPress={save}><Text style={s.buttonText}>{busy?'Memuat…':'Simpan Shift Utama'}</Text></Pressable>
