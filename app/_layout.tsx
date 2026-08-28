@@ -9,5 +9,5 @@ export default function RootLayout() {
   const androidTextSize = Platform.OS === 'android' ? { fontSize: 16 } : {};
   (Text as any).defaultProps = { ...(Text as any).defaultProps, style: [{ fontFamily: 'Inter_400Regular', ...androidTextSize }, (Text as any).defaultProps?.style] };
   (TextInput as any).defaultProps = { ...(TextInput as any).defaultProps, style: [{ fontFamily: 'Inter_400Regular', ...androidTextSize }, (TextInput as any).defaultProps?.style] };
-  return <><StatusBar style="auto" /><Stack screenOptions={{ headerShown: false }} /></>;
+  return <><StatusBar hidden={false} translucent={false} backgroundColor="#f7faf8" style="dark" /><Stack screenOptions={{ headerShown: false }} /></>;
 }
