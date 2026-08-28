@@ -7,9 +7,15 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const CRON_SECRET_SHA256 = "f3f0f748d826e975ec3a19e3a0dfe0c174888f31cf16d782e43a55ad654a4867";
 
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), {
   status,
-  headers: { "content-type": "application/json; charset=utf-8" },
+  headers: { ...corsHeaders, "content-type": "application/json; charset=utf-8" },
 });
 
 async function sha256Hex(value: string) {
@@ -74,6 +80,7 @@ async function replaceSheet(token: string, sheet: string, values: unknown[][]) {
 Deno.serve(async (req) => {
   let stage = "validasi permintaan";
   try {
+    if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
     if (req.method !== "POST") return json({ error: "Gunakan metode POST." }, 405);
     if (!SPREADSHEET_ID || !SERVICE_ACCOUNT_JSON) return json({ error: "Integrasi Google Sheets belum dikonfigurasi." }, 503);
 
