@@ -25,10 +25,10 @@ export default function ChangePassword() {
   return <KeyboardAvoidingView style={s.page} behavior={Platform.OS==='ios'?'padding':'height'}><ScrollView contentContainerStyle={s.content} keyboardShouldPersistTaps="handled"><Text style={s.title}>Ganti Kata Sandi</Text>
     <Text style={s.required}>Untuk keamanan, kata sandi awal wajib diganti sebelum menggunakan aplikasi.</Text>
     <Text style={s.info}>Minimal 10 karakter. Jangan gunakan NI PPPK, tanggal lahir, atau kata sandi yang sama dengan akun lain.</Text>
-    <TextInput style={s.input} placeholder="Kata sandi baru" secureTextEntry value={password} onChangeText={setPassword} />
-    <TextInput style={s.input} placeholder="Ulangi kata sandi baru" secureTextEntry value={confirm} onChangeText={setConfirm} />
+    <TextInput style={s.input} placeholder="Kata sandi baru" placeholderTextColor="#7a877f" secureTextEntry value={password} onChangeText={setPassword} />
+    <TextInput style={s.input} placeholder="Ulangi kata sandi baru" placeholderTextColor="#7a877f" secureTextEntry value={confirm} onChangeText={setConfirm} />
     {!!message && <Text style={s.message}>{message}</Text>}
     <Pressable style={s.button} disabled={busy} onPress={save}><Text style={s.buttonText}>{busy ? 'Menyimpan…' : 'Simpan'}</Text></Pressable>
   </ScrollView></KeyboardAvoidingView>;
 }
-const s=StyleSheet.create({page:{flex:1,backgroundColor:'#f7faf8'},content:{flexGrow:1,padding:24,paddingTop:64,gap:15},title:{fontSize:28,fontWeight:'800'},required:{backgroundColor:'#fff4db',color:'#7a4900',padding:13,borderRadius:12,lineHeight:20,fontWeight:'700'},info:{lineHeight:21,color:'#526158'},input:{borderWidth:1,borderColor:'#cfd8d3',backgroundColor:'#fff',borderRadius:12,padding:14,fontSize:16},button:{backgroundColor:'#18794e',padding:15,borderRadius:12,alignItems:'center'},buttonText:{color:'#fff',fontWeight:'700'},message:{color:'#33443a'}});
+const s=StyleSheet.create({page:{flex:1,backgroundColor:'#f7faf8'},content:{flexGrow:1,padding:24,paddingTop:64,gap:15},title:{fontSize:28,fontWeight:'800'},required:{backgroundColor:'#fff4db',color:'#7a4900',padding:13,borderRadius:12,lineHeight:20,fontWeight:'700'},info:{lineHeight:21,color:'#526158'},input:{borderWidth:1,borderColor:'#cfd8d3',backgroundColor:'#fff',color:'#1f2a24',borderRadius:12,padding:14,fontSize:16},button:{backgroundColor:'#18794e',padding:15,borderRadius:12,alignItems:'center'},buttonText:{color:'#fff',fontWeight:'700'},message:{color:'#33443a'}});
