@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useLocalSearchParams } from 'expo-router';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { jakartaDate, jakartaTime, validDate, validTime } from '@/lib/date';
 import { addDailyReport, ownAttendance, ownDefaultShift, ownReportForDate, recordCheckIn, recordCheckOut, saveAttendance } from '@/lib/data';
@@ -104,7 +104,7 @@ export default function Attendance() {
   const isAbsence = attendance && absenceStatuses.includes(attendance.status);
   const schedule = scheduleText(requestedDate, shift);
 
-  return <ScrollView style={s.page} contentContainerStyle={s.content}>
+  return <KeyboardAvoidingView style={s.page} behavior={Platform.OS==='ios'?'padding':'height'}><ScrollView contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
     <Text style={s.title}>{isToday ? 'Absen Hari Ini' : 'Isi Kekurangan Absen'}</Text>
     <Text style={s.date}>{requestedDate}</Text>
     <View style={s.scheduleCard}><Text style={s.scheduleTitle}>Shift {shift}</Text><Text style={s.scheduleText}>{schedule ? `Jam kerja ${schedule}` : 'Minggu bukan hari kerja'}</Text></View>
@@ -125,7 +125,7 @@ export default function Attendance() {
       <Pressable disabled={busy} style={[s.button,busy && s.disabled]} onPress={saveReport}><Text style={s.buttonText}>Simpan Laporan Harian</Text></Pressable>
     </View>}
     {!!message && <Text style={s.message}>{message}</Text>}
-  </ScrollView>;
+  </ScrollView></KeyboardAvoidingView>;
 }
 
 const s=StyleSheet.create({page:{flex:1,backgroundColor:'#f7faf8'},content:{padding:24,paddingTop:56,paddingBottom:48,gap:14},title:{fontSize:28,fontWeight:'900',color:'#18794e'},date:{fontSize:16,fontWeight:'700',color:'#526158'},scheduleCard:{backgroundColor:'#e3f2e8',padding:16,borderRadius:14,gap:4},scheduleTitle:{fontSize:18,fontWeight:'800',color:'#125f3d'},scheduleText:{color:'#35453b'},card:{backgroundColor:'#fff',padding:18,borderRadius:16,borderWidth:1,borderColor:'#dce8df',gap:12},step:{fontSize:19,fontWeight:'800'},time:{fontSize:34,fontWeight:'900',color:'#18794e'},result:{fontWeight:'800',color:'#18794e'},warning:{color:'#b54708'},button:{backgroundColor:'#18794e',padding:15,borderRadius:12,alignItems:'center'},disabled:{opacity:.45},buttonText:{color:'#fff',fontWeight:'800'},infoCard:{backgroundColor:'#fff8e7',padding:18,borderRadius:16,gap:7,borderWidth:1,borderColor:'#f1d596'},infoTitle:{fontSize:18,fontWeight:'800',color:'#8a4b08'},muted:{color:'#647168',lineHeight:20},row:{flexDirection:'row',gap:10},half:{flex:1,gap:7},label:{fontWeight:'700',marginTop:3},timePicker:{borderWidth:1,borderColor:'#cfd8d3',borderRadius:12,padding:14,backgroundColor:'#fff',alignItems:'center'},timePickerText:{fontSize:16,fontWeight:'800',color:'#18794e'},input:{borderWidth:1,borderColor:'#cfd8d3',borderRadius:12,padding:13,backgroundColor:'#fff',fontSize:16,color:'#1f2a24'},area:{minHeight:95,textAlignVertical:'top'},reportCard:{backgroundColor:'#eef6ff',padding:18,borderRadius:16,borderWidth:1,borderColor:'#c9ddf3',gap:10},reportTitle:{fontSize:20,fontWeight:'900',color:'#225a91'},message:{lineHeight:21,fontWeight:'600',color:'#35453b'}});

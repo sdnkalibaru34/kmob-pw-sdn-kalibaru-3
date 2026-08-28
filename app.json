@@ -2,14 +2,14 @@
   "expo": {
     "name": "KEMOB KW",
     "slug": "mbok-pppk-pw",
-    "version": "0.2.3",
+    "version": "0.2.4",
     "icon": "./assets/icon.png",
     "orientation": "portrait",
     "scheme": "mbok",
     "userInterfaceStyle": "automatic",
     "android": {
       "package": "id.sch.sdnkalibaru3.mbokpppkpw",
-      "versionCode": 5,
+      "versionCode": 6,
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#064E3B"
@@ -33,6 +33,9 @@
     "web": {
       "bundler": "metro",
       "output": "static"
+    },
+    "experiments": {
+      "baseUrl": "/kmob-pw-sdn-kalibaru-3"
     },
     "plugins": [
       "expo-router",
