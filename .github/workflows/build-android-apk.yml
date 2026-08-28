@@ -13,6 +13,10 @@ on:
       - 'package-lock.json'
       - '.github/workflows/build-android-apk.yml'
 
+concurrency:
+  group: android-release
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
