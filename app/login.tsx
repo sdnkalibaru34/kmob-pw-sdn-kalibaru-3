@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, router } from 'expo-router';
-import { ActivityIndicator, Image, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { employeeCodeToInternalEmail, supabase } from '@/lib/supabase';
 
 export default function Login() {
@@ -17,7 +17,7 @@ export default function Login() {
     if (error || !data.user) return setMessage('NI PPPK/kode pegawai atau kata sandi tidak sesuai.');
     router.replace('/home');
   };
-  return <View style={s.page}><View style={s.card}>
+  return <KeyboardAvoidingView style={s.page} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={8}><ScrollView contentContainerStyle={s.scrollContent} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}><View style={s.card}>
     <Image source={require('../assets/icon.png')} style={s.logo} resizeMode="contain" />
     <Text style={s.tagline}>KW aplikasinya, ori kehadirannya.</Text>
     <Text style={s.brand}>KEMOB KW</Text><Text style={s.title}>Absensi Internal PPPK Paruh Waktu SDN Kalibaru 3</Text>
@@ -45,6 +45,6 @@ export default function Login() {
     <Pressable style={s.button} onPress={submit} disabled={busy}>{busy ? <ActivityIndicator color="#fff" /> : <Text style={s.buttonText}>Masuk</Text>}</Pressable>
     <Text style={s.disclaimer}>Aplikasi internal SDN Kalibaru 3. Bukan aplikasi resmi KMOB dan tidak berafiliasi dengan pengelola KMOB.</Text>
     <Link href="/privacy" style={s.link}>Kebijakan Privasi</Link>
-  </View></View>;
+  </View></ScrollView></KeyboardAvoidingView>;
 }
-const s=StyleSheet.create({page:{flex:1,justifyContent:'center',padding:24,backgroundColor:'#eef7f0'},card:{maxWidth:420,width:'100%',alignSelf:'center',backgroundColor:'#fff',padding:24,borderRadius:20,gap:12},logo:{width:112,height:112,alignSelf:'center',borderRadius:25},tagline:{textAlign:'center',color:'#526158',fontSize:13,fontStyle:'italic',marginBottom:3},brand:{fontSize:36,fontWeight:'900',color:'#18794e',textAlign:'center'},title:{fontSize:16,fontWeight:'700',marginBottom:8,color:'#1f2a24',textAlign:'center',lineHeight:22},input:{borderWidth:1,borderColor:'#cfd8d3',borderRadius:12,padding:14,fontSize:16,color:'#1f2a24',backgroundColor:'#fff'},passwordRow:{flexDirection:'row',alignItems:'center',borderWidth:1,borderColor:'#cfd8d3',borderRadius:12,backgroundColor:'#fff'},passwordInput:{flex:1,padding:14,fontSize:16,color:'#1f2a24'},showButton:{paddingHorizontal:13,paddingVertical:15},showText:{color:'#18794e',fontWeight:'700',fontSize:12},codeMode:{color:'#18794e',fontWeight:'600',fontSize:13,marginTop:-4},button:{backgroundColor:'#18794e',borderRadius:12,padding:15,alignItems:'center'},buttonText:{color:'#fff',fontWeight:'700',fontSize:16},error:{color:'#b42318'},disclaimer:{fontSize:12,lineHeight:17,color:'#66736b',textAlign:'center'},link:{color:'#18794e',fontWeight:'700',textAlign:'center'}});
+const s=StyleSheet.create({page:{flex:1,backgroundColor:'#eef7f0'},scrollContent:{flexGrow:1,justifyContent:'center',padding:24,paddingVertical:32},card:{maxWidth:420,width:'100%',alignSelf:'center',backgroundColor:'#fff',padding:24,borderRadius:20,gap:12},logo:{width:112,height:112,alignSelf:'center',borderRadius:25},tagline:{textAlign:'center',color:'#526158',fontSize:13,fontStyle:'italic',marginBottom:3},brand:{fontSize:36,fontWeight:'900',color:'#18794e',textAlign:'center'},title:{fontSize:16,fontWeight:'700',marginBottom:8,color:'#1f2a24',textAlign:'center',lineHeight:22},input:{borderWidth:1,borderColor:'#cfd8d3',borderRadius:12,padding:14,fontSize:16,color:'#1f2a24',backgroundColor:'#fff'},passwordRow:{flexDirection:'row',alignItems:'center',borderWidth:1,borderColor:'#cfd8d3',borderRadius:12,backgroundColor:'#fff'},passwordInput:{flex:1,padding:14,fontSize:16,color:'#1f2a24'},showButton:{paddingHorizontal:13,paddingVertical:15},showText:{color:'#18794e',fontWeight:'700',fontSize:12},codeMode:{color:'#18794e',fontWeight:'600',fontSize:13,marginTop:-4},button:{backgroundColor:'#18794e',borderRadius:12,padding:15,alignItems:'center'},buttonText:{color:'#fff',fontWeight:'700',fontSize:16},error:{color:'#b42318'},disclaimer:{fontSize:12,lineHeight:17,color:'#66736b',textAlign:'center'},link:{color:'#18794e',fontWeight:'700',textAlign:'center'}});
