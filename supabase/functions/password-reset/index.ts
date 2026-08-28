@@ -34,15 +34,29 @@ Deno.serve(async (req) => {
     }
 
     if (body.action === 'approve') {
-      const { data: request } = await db.from('password_reset_requests').select('id,login_code').eq('id', String(body.requestId ?? '')).eq('status', 'pending').maybeSingle();
+      const { data: request, error: requestError } = await db.from('password_reset_requests').select('id,login_code').eq('id', String(body.requestId ?? '')).eq('status', 'pending').maybeSingle();
+      if (requestError) return respond({ error: requestError.message }, 500);
       if (!request?.login_code) return respond({ error: 'Permintaan reset tidak ditemukan.' }, 404);
-      const { data: employee } = await db.from('employees').select('id,full_name,employee_code,auth_user_id').or(`employee_code.ilike.${request.login_code},ni_pppk.eq.${request.login_code}`).eq('is_active', true).maybeSingle();
+      let { data: employee, error: employeeError } = await db.from('employees').select('id,full_name,employee_code,auth_user_id').eq('employee_code', request.login_code).eq('is_active', true).maybeSingle();
+      if (!employee && !employeeError) {
+        const fallback = await db.from('employees').select('id,full_name,employee_code,auth_user_id').eq('ni_pppk', request.login_code).eq('is_active', true).maybeSingle();
+        employee = fallback.data;
+        employeeError = fallback.error;
+      }
+      if (employeeError) return respond({ error: employeeError.message }, 500);
       if (!employee?.auth_user_id) return respond({ error: 'Akun pegawai tidak ditemukan.' }, 404);
       const password = randomPassword();
-      const { error: authError } = await db.auth.admin.updateUserById(employee.auth_user_id, { password, user_metadata: { must_change_password: true } });
-      if (authError) return respond({ error: 'Password sementara belum dapat dibuat.' }, 500);
-      await db.from('password_reset_requests').update({ status: 'completed', employee_id: employee.id, completed_at: new Date().toISOString(), completed_by: authData.user.id }).eq('id', request.id);
+      const { error: authError } = await db.auth.admin.updateUserById(employee.auth_user_id, { password, user_metadata: { must_change_password: false } });
+      if (authError) return respond({ error: authError.message }, 500);
+      const { error: updateError } = await db.from('password_reset_requests').update({ status: 'completed', employee_id: employee.id, completed_at: new Date().toISOString(), completed_by: authData.user.id }).eq('id', request.id);
+      if (updateError) return respond({ error: updateError.message }, 500);
       return respond({ ok: true, fullName: employee.full_name, employeeCode: employee.employee_code, temporaryPassword: password });
+    }
+
+    if (body.action === 'dismiss') {
+      const { error } = await db.from('password_reset_requests').update({ status: 'dismissed', completed_at: new Date().toISOString(), completed_by: authData.user.id }).eq('id', String(body.requestId ?? '')).eq('status', 'pending');
+      if (error) return respond({ error: error.message }, 500);
+      return respond({ ok: true });
     }
     return respond({ error: 'Aksi tidak dikenali.' }, 400);
   } catch (error) {
