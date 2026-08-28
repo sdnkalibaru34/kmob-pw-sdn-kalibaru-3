@@ -141,6 +141,13 @@ export async function ownReports(limit = 31): Promise<DailyReport[]> {
   return (data ?? []) as DailyReport[];
 }
 
+export async function ownReportsRange(from: string, to: string): Promise<DailyReport[]> {
+  const employee = await currentEmployee();
+  const { data, error } = await supabase.from('daily_reports').select('*').eq('employee_id', employee.id).gte('report_date', from).lte('report_date', to).order('report_date');
+  if (error) throw error;
+  return (data ?? []) as DailyReport[];
+}
+
 export async function syncGoogleSheets(month: string) {
   const { data, error } = await supabase.functions.invoke('sync-google-sheets', { body: { month } });
   if (error) throw error;

@@ -2,14 +2,15 @@
   "expo": {
     "name": "KEMOB KW",
     "slug": "mbok-pppk-pw",
-    "version": "0.2.6",
+    "version": "0.3.0",
     "icon": "./assets/icon.png",
     "orientation": "portrait",
     "scheme": "mbok",
     "userInterfaceStyle": "automatic",
     "android": {
       "package": "id.sch.sdnkalibaru3.mbokpppkpw",
-      "versionCode": 8,
+      "versionCode": 9,
+      "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#064E3B"

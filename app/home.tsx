@@ -9,7 +9,7 @@ import { currentEmployee, ownProfilePhotoUrl, saveOwnProfilePhoto } from '@/lib/
 import { supabase } from '@/lib/supabase';
 import type { Employee } from '@/lib/types';
 
-const menu=[['Pengajuan Tidak Hadir','/absence-request'],['Shift Saya','/shift-settings'],['Lihat Rekap & Kekurangan','/recap'],['Ganti Kata Sandi','/change-password'],['Kebijakan Privasi','/privacy']] as const;
+const menu=[['Pengajuan Tidak Hadir','/absence-request'],['Shift Saya','/shift-settings'],['Lihat Rekap & Kekurangan','/recap'],['Cetak Rekap Bulanan Saya','/personal-monthly-recap'],['Ganti Kata Sandi','/change-password'],['Kebijakan Privasi','/privacy']] as const;
 
 export default function Home(){
  const[admin,setAdmin]=useState(false);const[employee,setEmployee]=useState<Employee|null>(null);const[photo,setPhoto]=useState<string|null>(null);const[uploading,setUploading]=useState(false);const[message,setMessage]=useState('');
