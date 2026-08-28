@@ -2,14 +2,14 @@
   "expo": {
     "name": "KEMOB KW",
     "slug": "mbok-pppk-pw",
-    "version": "0.2.0",
+    "version": "0.2.1",
     "icon": "./assets/icon.png",
     "orientation": "portrait",
     "scheme": "mbok",
     "userInterfaceStyle": "automatic",
     "android": {
       "package": "id.sch.sdnkalibaru3.mbokpppkpw",
-      "versionCode": 2,
+      "versionCode": 3,
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#064E3B"
@@ -34,6 +34,6 @@
       "bundler": "metro",
       "output": "static"
     },
-    "plugins": ["expo-router"]
+    "plugins": ["expo-router", "@react-native-community/datetimepicker"]
   }
 }
