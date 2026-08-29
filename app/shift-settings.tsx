@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { ownWorkPreference, updateOwnWorkPreference } from '@/lib/data';
+import { scheduleAttendanceReminders } from '@/lib/attendanceNotifications';
 import type { ShiftLabel, WorkPattern } from '@/lib/types';
 
 const shifts:ShiftLabel[]=['Pagi','Siang'];
@@ -10,9 +11,9 @@ export default function ShiftSettings(){
   const [busy,setBusy]=useState(true);
   const [message,setMessage]=useState('');
   useEffect(()=>{void ownWorkPreference().then(value=>{setShift(value.shift);setWorkPattern(value.workPattern)}).catch(()=>setMessage('Pengaturan jam kerja belum dapat dimuat.')).finally(()=>setBusy(false))},[]);
-  const save=async()=>{setBusy(true);setMessage('');try{await updateOwnWorkPreference(shift,workPattern);setMessage(`${workPattern} · shift ${shift} berhasil disimpan.`) }catch{setMessage('Pengaturan jam kerja belum dapat diubah. Coba kembali.')}finally{setBusy(false)}};
+  const save=async()=>{setBusy(true);setMessage('');try{await updateOwnWorkPreference(shift,workPattern);const notificationsOn=await scheduleAttendanceReminders(shift,workPattern);setMessage(`${workPattern==='Opsi 1'?'5 hari kerja':'6 hari kerja'} · shift ${shift} berhasil disimpan.${notificationsOn?' Pengingat absensi telah dijadwalkan.':' Aktifkan izin notifikasi agar pengingat dapat tampil.'}`) }catch{setMessage('Pengaturan jam kerja belum dapat diubah. Coba kembali.')}finally{setBusy(false)}};
   return <View style={s.page}><Text style={s.title}>Jam Kerja Saya</Text><Text style={s.info}>Pilih pola hari kerja dan shift. Pilihan menjadi acuan jam masuk, jam pulang, keterlambatan, dan pulang terlalu cepat.</Text>
-    <Text style={s.label}>Pola hari kerja</Text><View style={s.patterns}>{(['Opsi 1','Opsi 2'] as WorkPattern[]).map(x=><Pressable key={x} style={[s.pattern,workPattern===x&&s.choiceOn]} onPress={()=>setWorkPattern(x)}><Text style={workPattern===x?s.textOn:s.patternTitle}>{x}</Text><Text style={workPattern===x?s.patternInfoOn:s.patternInfo}>{x==='Opsi 1'?'5 hari · Senin–Jumat':'6 hari · Senin–Sabtu'}</Text></Pressable>)}</View>
+    <Text style={s.label}>Pola hari kerja</Text><View style={s.patterns}>{(['Opsi 1','Opsi 2'] as WorkPattern[]).map(x=><Pressable key={x} style={[s.pattern,workPattern===x&&s.choiceOn]} onPress={()=>setWorkPattern(x)}><Text style={workPattern===x?s.textOn:s.patternTitle}>{x==='Opsi 1'?'5 hari kerja':'6 hari kerja'}</Text><Text style={workPattern===x?s.patternInfoOn:s.patternInfo}>{x==='Opsi 1'?'Senin–Jumat':'Senin–Sabtu'}</Text></Pressable>)}</View>
     <Text style={s.label}>Shift</Text>
     <View style={s.row}>{shifts.map(x=><Pressable key={x} style={[s.choice,shift===x&&s.choiceOn]} onPress={()=>setShift(x)}><Text style={shift===x?s.textOn:s.text}>{x}</Text></Pressable>)}</View>
     <Text style={s.schedule}>{workPattern==='Opsi 1'?(shift==='Pagi'?'Senin–Jumat 06.30–14.30 · Sabtu libur':'Senin–Jumat 09.00–17.00 · Sabtu libur'):(shift==='Pagi'?'Senin–Sabtu 06.30–13.00':'Senin–Sabtu 10.30–17.00')}</Text>
