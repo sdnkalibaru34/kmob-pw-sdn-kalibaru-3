@@ -8,7 +8,7 @@ type Summary=Employee&{hadir:number;izin:number;sakit:number;cuti:number;dinas:n
 type ResetRequest={id:string;requested_at:string;login_code:string};
 const MONTHS=['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
 export default function Admin(){
- const [allowed,setAllowed]=useState<boolean|null>(null);const [month,setMonth]=useState(new Date().toLocaleDateString('en-CA',{timeZone:'Asia/Jakarta'}).slice(0,7));const [yearOpen,setYearOpen]=useState(false);const [monthOpen,setMonthOpen]=useState(false);const [employees,setEmployees]=useState<Employee[]>([]);const [attendance,setAttendance]=useState<Attendance[]>([]);const [reports,setReports]=useState<DailyReport[]>([]);const [workdays,setWorkdays]=useState<string[]>([]);const [resets,setResets]=useState<ResetRequest[]>([]);const [message,setMessage]=useState('');const [busy,setBusy]=useState(false);
+ const [allowed,setAllowed]=useState<boolean|null>(null);const [month,setMonth]=useState(new Date().toLocaleDateString('en-CA',{timeZone:'Asia/Jakarta'}).slice(0,7));const [yearOpen,setYearOpen]=useState(false);const [monthOpen,setMonthOpen]=useState(false);const [employees,setEmployees]=useState<Employee[]>([]);const [attendance,setAttendance]=useState<Attendance[]>([]);const [reports,setReports]=useState<DailyReport[]>([]);const [workdays,setWorkdays]=useState<string[]>([]);const [resets,setResets]=useState<ResetRequest[]>([]);const [workPatterns,setWorkPatterns]=useState<Record<string,string>>({});const [message,setMessage]=useState('');const [busy,setBusy]=useState(false);
  const selectedYear=month.slice(0,4);const selectedMonth=Number(month.slice(5,7));const jakartaYear=Number(new Date().toLocaleDateString('en-CA',{timeZone:'Asia/Jakarta'}).slice(0,4));const years=Array.from({length:jakartaYear-2024},(_,index)=>String(2025+index));
  const chooseYear=(year:string)=>{setMonth(`${year}-${String(selectedMonth).padStart(2,'0')}`);setYearOpen(false)};
  const chooseMonth=(monthNumber:number)=>{setMonth(`${selectedYear}-${String(monthNumber).padStart(2,'0')}`);setMonthOpen(false)};
@@ -33,15 +33,16 @@ export default function Admin(){
  };
  const load=async()=>{closeDropdowns();setBusy(true);setMessage('');try{const{data:user}=await supabase.auth.getUser();const isAdmin=user.user?.app_metadata?.role==='admin';setAllowed(isAdmin);if(!isAdmin)return;
    const from=month+'-01';const last=new Date(Number(month.slice(0,4)),Number(month.slice(5,7)),0).getDate();const to=month+'-'+String(last).padStart(2,'0');
-   const[e,a,r,c]=await Promise.all([
+   const[e,a,r,c,p]=await Promise.all([
     supabase.from('employees').select('id,employee_code,full_name,position,ni_pppk').eq('is_active',true).order('full_name'),
     supabase.from('attendance').select('*').gte('attendance_date',from).lte('attendance_date',to).order('attendance_date',{ascending:false}),
     supabase.from('daily_reports').select('*').gte('report_date',from).lte('report_date',to).order('report_date',{ascending:false}),
-    supabase.from('work_calendar').select('work_date').eq('is_workday',true).gte('work_date',from).lte('work_date',to).order('work_date')
-   ]);if(e.error||a.error||r.error||c.error)throw new Error();setEmployees((e.data??[]) as Employee[]);setAttendance((a.data??[]) as Attendance[]);setReports((r.data??[]) as DailyReport[]);const today=new Date().toLocaleDateString('en-CA',{timeZone:'Asia/Jakarta'});setWorkdays((c.data??[]).map(x=>x.work_date).filter(x=>x<today));await loadResets();
+    supabase.from('work_calendar').select('work_date').eq('is_workday',true).gte('work_date',from).lte('work_date',to).order('work_date'),
+    supabase.from('employee_shift_preferences').select('employee_id,work_pattern')
+   ]);if(e.error||a.error||r.error||c.error||p.error)throw new Error();setEmployees((e.data??[]) as Employee[]);setAttendance((a.data??[]) as Attendance[]);setReports((r.data??[]) as DailyReport[]);setWorkPatterns(Object.fromEntries((p.data??[]).map(x=>[x.employee_id,x.work_pattern])));const today=new Date().toLocaleDateString('en-CA',{timeZone:'Asia/Jakarta'});setWorkdays((c.data??[]).map(x=>x.work_date).filter(x=>x<today));await loadResets();
  }catch{setMessage('Data admin belum dapat dimuat.')}finally{setBusy(false)}};
  useEffect(()=>{if(Platform.OS==='web')void load();else setAllowed(false)},[]);
- const summary=useMemo<Summary[]>(()=>employees.map(e=>{const rows=attendance.filter(a=>a.employee_id===e.id);const count=(x:string)=>rows.filter(a=>a.status===x).length;const filled=new Set(rows.map(a=>a.attendance_date));return{...e,hadir:rows.filter(a=>!!a.check_in).length,izin:count('Izin'),sakit:count('Sakit'),cuti:count('Cuti'),dinas:count('Dinas Luar'),tanpa:workdays.filter(date=>!filled.has(date)).length,total:workdays.length}}),[employees,attendance,workdays]);
+ const summary=useMemo<Summary[]>(()=>employees.map(e=>{const rows=attendance.filter(a=>a.employee_id===e.id);const count=(x:string)=>rows.filter(a=>a.status===x).length;const filled=new Set(rows.map(a=>a.attendance_date));const employeeWorkdays=workdays.filter(date=>workPatterns[e.id]!=='Opsi 1'||new Date(`${date}T00:00:00`).getDay()!==6);return{...e,hadir:rows.filter(a=>!!a.check_in).length,izin:count('Izin'),sakit:count('Sakit'),cuti:count('Cuti'),dinas:count('Dinas Luar'),tanpa:employeeWorkdays.filter(date=>!filled.has(date)).length,total:employeeWorkdays.length}}),[employees,attendance,workdays,workPatterns]);
  if(Platform.OS!=='web')return <View style={s.center}><Text>Dashboard admin hanya tersedia melalui web.</Text></View>;
  if(allowed===false)return <View style={s.center}><Text style={s.denied}>Akses ditolak. Halaman ini khusus admin.</Text></View>;
  return <ScrollView style={s.page} contentContainerStyle={s.content}><Text style={s.title}>Dashboard Admin</Text><Text style={s.sub}>Rekap seluruh pegawai · SDN Kalibaru 3</Text>
