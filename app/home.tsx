@@ -5,7 +5,8 @@ import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { decode } from 'base64-arraybuffer';
 import TodayAttendance from '@/components/TodayAttendance';
-import { currentEmployee, ownProfilePhotoUrl, saveOwnProfilePhoto } from '@/lib/data';
+import { currentEmployee, ownProfilePhotoUrl, ownWorkPreference, saveOwnProfilePhoto } from '@/lib/data';
+import { cancelAttendanceReminders, scheduleAttendanceReminders } from '@/lib/attendanceNotifications';
 import { supabase } from '@/lib/supabase';
 import type { Employee } from '@/lib/types';
 
@@ -13,7 +14,7 @@ const menu=[['Pengajuan Tidak Hadir','/absence-request'],['Shift Saya','/shift-s
 
 export default function Home(){
  const[admin,setAdmin]=useState(false);const[employee,setEmployee]=useState<Employee|null>(null);const[photo,setPhoto]=useState<string|null>(null);const[uploading,setUploading]=useState(false);const[message,setMessage]=useState('');
- useEffect(()=>{void (async()=>{try{const{data}=await supabase.auth.getUser();if(data.user?.user_metadata?.must_change_password===true)return router.replace('/change-password');setAdmin(data.user?.app_metadata?.role==='admin');setEmployee(await currentEmployee());const url=await ownProfilePhotoUrl();setPhoto(url)}catch{setMessage('Profil belum dapat dimuat.')}})()},[]);
+ useEffect(()=>{void (async()=>{try{const{data}=await supabase.auth.getUser();if(data.user?.user_metadata?.must_change_password===true)return router.replace('/change-password');setAdmin(data.user?.app_metadata?.role==='admin');setEmployee(await currentEmployee());const[url,preference]=await Promise.all([ownProfilePhotoUrl(),ownWorkPreference()]);setPhoto(url);void scheduleAttendanceReminders(preference.shift,preference.workPattern)}catch{setMessage('Profil belum dapat dimuat.')}})()},[]);
  const pickPhoto=async()=>{
   setMessage('');
   const selected=await ImagePicker.launchImageLibraryAsync({mediaTypes:['images'],allowsEditing:true,aspect:[1,1],quality:.65});
@@ -28,7 +29,7 @@ export default function Home(){
   <View style={s.divider}/>
   {admin&&Platform.OS==='web'&&<Pressable style={s.admin} onPress={()=>router.push('/admin')}><Text style={s.adminText}>Dashboard Admin Web</Text></Pressable>}
   <View style={s.menuGrid}>{menu.map(([label,path])=><Pressable key={path} style={s.menu} onPress={()=>router.push(path)}><Text style={s.menuText}>{label}</Text></Pressable>)}</View>
-  <Pressable onPress={async()=>{await supabase.auth.signOut({scope:'local'});router.replace('/login')}}><Text style={s.logout}>Keluar</Text></Pressable>
+  <Pressable onPress={async()=>{await cancelAttendanceReminders();await supabase.auth.signOut({scope:'local'});router.replace('/login')}}><Text style={s.logout}>Keluar</Text></Pressable>
  </ScrollView>
 }
 const s=StyleSheet.create({page:{flex:1,backgroundColor:'#f7faf8'},content:{paddingHorizontal:18,paddingTop:38,paddingBottom:32,gap:11,maxWidth:700,width:'100%',alignSelf:'center'},profile:{flexDirection:'row',alignItems:'center',gap:12,backgroundColor:'#e3f2e8',padding:13,borderRadius:16},photoButton:{width:66,height:66},photo:{width:66,height:66,borderRadius:33,backgroundColor:'#d7e2da'},placeholder:{width:66,height:66,borderRadius:33,backgroundColor:'#18794e',alignItems:'center',justifyContent:'center'},initial:{color:'#fff',fontSize:29,fontWeight:'900'},editBadge:{position:'absolute',bottom:-1,right:-3,backgroundColor:'#fff',borderRadius:12,paddingHorizontal:6,paddingVertical:2,borderWidth:1,borderColor:'#c8d8cd'},editText:{fontSize:11,fontWeight:'800',color:'#18794e'},identity:{flex:1,gap:4},name:{fontSize:21,fontWeight:'900',color:'#174b34'},nip:{fontSize:15,color:'#526158'},message:{color:'#35453b',fontWeight:'600',fontSize:14},divider:{height:1,backgroundColor:'#dce8df'},admin:{backgroundColor:'#123f2c',padding:14,borderRadius:13},adminText:{color:'#fff',fontSize:16,fontWeight:'800'},menuGrid:{gap:8},menu:{width:'100%',minHeight:51,backgroundColor:'#fff',paddingHorizontal:16,paddingVertical:13,borderRadius:12,borderWidth:1,borderColor:'#dce8df',justifyContent:'center'},menuText:{fontSize:16,fontWeight:'700'},logout:{textAlign:'center',color:'#b42318',paddingVertical:9,fontSize:15}});
