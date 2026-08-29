@@ -1,12 +1,30 @@
 import { supabase } from './supabase';
 import type { Attendance, AttendanceStatus, DailyReport, Employee, ShiftLabel, WorkPattern } from './types';
 
+let employeeCache: { userId: string; value: Employee } | null = null;
+let employeeRequest: Promise<Employee> | null = null;
+let preferenceCache: { employeeId: string; value: { shift: ShiftLabel; workPattern: WorkPattern } } | null = null;
+
+export function clearLocalDataCache() {
+  employeeCache = null;
+  employeeRequest = null;
+  preferenceCache = null;
+}
+
 export async function currentEmployee(): Promise<Employee> {
-  const { data: userData, error: userError } = await supabase.auth.getUser();
-  if (userError || !userData.user) throw new Error('Sesi login tidak ditemukan.');
-  const { data, error } = await supabase.from('employees').select('id,employee_code,full_name,position,ni_pppk').eq('auth_user_id', userData.user.id).single();
-  if (error || !data) throw new Error('Akun belum terhubung dengan data pegawai.');
-  return data as Employee;
+  const { data: sessionData } = await supabase.auth.getSession();
+  const userId = sessionData.session?.user.id;
+  if (!userId) throw new Error('Sesi login tidak ditemukan.');
+  if (employeeCache?.userId === userId) return employeeCache.value;
+  if (employeeRequest) return employeeRequest;
+  employeeRequest = (async () => {
+    const { data, error } = await supabase.from('employees').select('id,employee_code,full_name,position,ni_pppk').eq('auth_user_id', userId).single();
+    if (error || !data) throw new Error('Akun belum terhubung dengan data pegawai.');
+    const value = data as Employee;
+    employeeCache = { userId, value };
+    return value;
+  })();
+  try { return await employeeRequest; } finally { employeeRequest = null; }
 }
 
 export async function saveAttendance(input: {
@@ -69,22 +87,24 @@ export async function submitAbsenceRequest(input: {
 }
 
 export async function ownProfilePhotoUrl(): Promise<string | null> {
-  const { data: userData } = await supabase.auth.getUser();
-  if (!userData.user) return null;
-  const { data } = await supabase.from('profile_photos').select('avatar_path').eq('user_id', userData.user.id).maybeSingle();
+  const { data: sessionData } = await supabase.auth.getSession();
+  const userId = sessionData.session?.user.id;
+  if (!userId) return null;
+  const { data } = await supabase.from('profile_photos').select('avatar_path').eq('user_id', userId).maybeSingle();
   if (!data?.avatar_path) return null;
   const { data: signed } = await supabase.storage.from('profile-photos').createSignedUrl(data.avatar_path, 3600);
   return signed?.signedUrl ?? null;
 }
 
 export async function saveOwnProfilePhoto(bytes: ArrayBuffer, contentType: string) {
-  const { data: userData, error: userError } = await supabase.auth.getUser();
-  if (userError || !userData.user) throw new Error('Sesi login tidak ditemukan.');
+  const { data: sessionData } = await supabase.auth.getSession();
+  const userId = sessionData.session?.user.id;
+  if (!userId) throw new Error('Sesi login tidak ditemukan.');
   const extension = contentType === 'image/png' ? 'png' : contentType === 'image/webp' ? 'webp' : 'jpg';
-  const path = `${userData.user.id}/profile.${extension}`;
+  const path = `${userId}/profile.${extension}`;
   const { error: uploadError } = await supabase.storage.from('profile-photos').upload(path, bytes, { contentType, upsert: true });
   if (uploadError) throw uploadError;
-  const { error } = await supabase.from('profile_photos').upsert({ user_id: userData.user.id, avatar_path: path, updated_at: new Date().toISOString() });
+  const { error } = await supabase.from('profile_photos').upsert({ user_id: userId, avatar_path: path, updated_at: new Date().toISOString() });
   if (error) throw error;
   return ownProfilePhotoUrl();
 }
@@ -95,15 +115,19 @@ export async function ownDefaultShift(): Promise<ShiftLabel> {
 
 export async function ownWorkPreference(): Promise<{ shift: ShiftLabel; workPattern: WorkPattern }> {
   const employee = await currentEmployee();
+  if (preferenceCache?.employeeId === employee.id) return preferenceCache.value;
   const { data, error } = await supabase.from('employee_shift_preferences').select('default_shift,work_pattern').eq('employee_id', employee.id).single();
   if (error || !data) throw new Error('Shift utama belum dapat dimuat.');
-  return { shift: data.default_shift as ShiftLabel, workPattern: data.work_pattern as WorkPattern };
+  const value = { shift: data.default_shift as ShiftLabel, workPattern: data.work_pattern as WorkPattern };
+  preferenceCache = { employeeId: employee.id, value };
+  return value;
 }
 
 export async function updateOwnWorkPreference(defaultShift: ShiftLabel, workPattern: WorkPattern) {
   const employee = await currentEmployee();
   const { error } = await supabase.from('employee_shift_preferences').update({ default_shift: defaultShift, work_pattern: workPattern, updated_at: new Date().toISOString() }).eq('employee_id', employee.id);
   if (error) throw error;
+  preferenceCache = { employeeId: employee.id, value: { shift: defaultShift, workPattern } };
 }
 
 export async function ownAttendance(from?: string, to?: string): Promise<Attendance[]> {
