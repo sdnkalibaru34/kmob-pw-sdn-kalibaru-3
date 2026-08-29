@@ -53,7 +53,7 @@ export default function TodayAttendance() {
   const absence = attendance && absenceStatuses.includes(attendance.status);
   const schedule = scheduleText(date, shift, workPattern);
   return <View style={s.wrap}>
-    <Text style={s.heading}>Absen Hari Ini</Text><Text style={s.date}>{date} · {workPattern} · Shift {shift} · {schedule ?? 'Libur'}</Text>
+    <Text style={s.heading}>Absen Hari Ini</Text><Text style={s.date}>{date} · {workPattern==='Opsi 1'?'5 hari kerja':'6 hari kerja'} · Shift {shift} · {schedule ?? 'Libur'}</Text>
     {absence ? <View style={s.absence}><Text style={s.absenceTitle}>Pengajuan Tidak Hadir</Text><Text>{attendance?.status}</Text><Text style={s.muted}>{attendance?.note}</Text></View> : <>
       <View style={s.row}>
         <View style={s.card}><Text style={s.label}>Masuk</Text>{attendance?.check_in ? <><Text style={s.time}>{attendance.check_in.slice(0,5)}</Text><Text style={[s.result,attendance.late_minutes>0&&s.warning]}>{checkInResult(attendance.late_minutes)}</Text></> : <Pressable disabled={busy||!schedule} style={[s.button,(busy||!schedule)&&s.disabled]} onPress={checkIn}><Text style={s.buttonText}>Tap Absen Masuk</Text></Pressable>}</View>
