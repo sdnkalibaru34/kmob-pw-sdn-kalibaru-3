@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useLocalSearchParams } from 'expo-router';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import KeyboardScroll from '@/components/KeyboardScroll';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { jakartaDate, jakartaTime, validDate, validTime } from '@/lib/date';
-import { addDailyReport, ownAttendance, ownDefaultShift, ownReportForDate, recordCheckIn, recordCheckOut, saveAttendance } from '@/lib/data';
+import { addDailyReport, ownAttendance, ownReportForDate, ownWorkPreference, recordCheckIn, recordCheckOut, saveAttendance } from '@/lib/data';
 import { checkInResult, checkOutResult, scheduleText } from '@/lib/schedule';
-import type { Attendance, ShiftLabel } from '@/lib/types';
+import type { Attendance, ShiftLabel, WorkPattern } from '@/lib/types';
 
 const absenceStatuses = ['Izin', 'Sakit', 'Cuti', 'Dinas Luar'];
 
@@ -14,6 +15,7 @@ export default function Attendance() {
   const requestedDate = typeof params.date === 'string' && validDate(params.date) ? params.date : jakartaDate();
   const isToday = requestedDate === jakartaDate();
   const [shift, setShift] = useState<ShiftLabel>('Pagi');
+  const [workPattern, setWorkPattern] = useState<WorkPattern>('Opsi 1');
   const [attendance, setAttendance] = useState<Attendance | null>(null);
   const [checkIn, setCheckIn] = useState('');
   const [checkOut, setCheckOut] = useState('');
@@ -43,9 +45,10 @@ export default function Attendance() {
   const load = async () => {
     setBusy(true);
     try {
-      const [defaultShift, rows] = await Promise.all([ownDefaultShift(), ownAttendance(requestedDate, requestedDate)]);
+      const [preference, rows] = await Promise.all([ownWorkPreference(), ownAttendance(requestedDate, requestedDate)]);
       const row = rows[0] ?? null;
-      setShift(row?.shift_label ?? defaultShift);
+      setShift(row?.shift_label ?? preference.shift);
+      setWorkPattern(row?.work_pattern ?? preference.workPattern);
       setAttendance(row);
       setCheckIn(row?.check_in?.slice(0, 5) ?? '');
       setCheckOut(row?.check_out?.slice(0, 5) ?? '');
@@ -65,7 +68,7 @@ export default function Attendance() {
   const tapCheckIn = async () => {
     setBusy(true); setMessage('');
     try {
-      const row = await recordCheckIn(requestedDate, shift, jakartaTime());
+      const row = await recordCheckIn(requestedDate, shift, workPattern, jakartaTime());
       setAttendance(row); setCheckIn(row.check_in?.slice(0, 5) ?? '');
       setMessage(`Absen masuk berhasil: ${checkInResult(row.late_minutes)}.`);
     } catch { setMessage('Absen masuk belum dapat disimpan.'); }
@@ -75,7 +78,7 @@ export default function Attendance() {
   const tapCheckOut = async () => {
     setBusy(true); setMessage('');
     try {
-      const row = await recordCheckOut(requestedDate, shift, jakartaTime());
+      const row = await recordCheckOut(requestedDate, shift, workPattern, jakartaTime());
       setAttendance(row); setCheckOut(row.check_out?.slice(0, 5) ?? '');
       setMessage(`Absen pulang berhasil: ${checkOutResult(row.early_leave_minutes)}. Silakan isi laporan harian.`);
     } catch { setMessage('Absen pulang belum dapat disimpan. Pastikan sudah absen masuk.'); }
@@ -87,7 +90,7 @@ export default function Attendance() {
     if (checkOut < checkIn) return setMessage('Jam pulang tidak boleh lebih awal dari jam masuk.');
     setBusy(true); setMessage('');
     try {
-      await saveAttendance({ date: requestedDate, checkIn, checkOut, shiftLabel: shift, status: 'Hadir', note: '' });
+      await saveAttendance({ date: requestedDate, checkIn, checkOut, shiftLabel: shift, workPattern, status: 'Hadir', note: '' });
       setMessage('Absensi tanggal lalu berhasil dilengkapi.'); await load();
     } catch { setMessage('Absensi belum dapat disimpan.'); }
     finally { setBusy(false); }
@@ -102,12 +105,12 @@ export default function Attendance() {
   };
 
   const isAbsence = attendance && absenceStatuses.includes(attendance.status);
-  const schedule = scheduleText(requestedDate, shift);
+  const schedule = scheduleText(requestedDate, shift, workPattern);
 
-  return <KeyboardAvoidingView style={s.page} behavior={Platform.OS==='ios'?'padding':'height'}><ScrollView contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
+  return <KeyboardScroll style={s.page} contentContainerStyle={s.content}>
     <Text style={s.title}>{isToday ? 'Absen Hari Ini' : 'Isi Kekurangan Absen'}</Text>
     <Text style={s.date}>{requestedDate}</Text>
-    <View style={s.scheduleCard}><Text style={s.scheduleTitle}>Shift {shift}</Text><Text style={s.scheduleText}>{schedule ? `Jam kerja ${schedule}` : 'Minggu bukan hari kerja'}</Text></View>
+    <View style={s.scheduleCard}><Text style={s.scheduleTitle}>{workPattern} · Shift {shift}</Text><Text style={s.scheduleText}>{schedule ? `Jam kerja ${schedule}` : 'Bukan hari kerja'}</Text></View>
     {isAbsence ? <View style={s.infoCard}><Text style={s.infoTitle}>Pengajuan Tidak Hadir</Text><Text>{attendance?.status}</Text>{!!attendance?.note && <Text style={s.muted}>{attendance.note}</Text>}</View> : isToday ? <>
       <View style={s.card}><Text style={s.step}>Jam Masuk</Text>{attendance?.check_in ? <><Text style={s.time}>{attendance.check_in.slice(0, 5)}</Text><Text style={[s.result, attendance.late_minutes > 0 && s.warning]}>{checkInResult(attendance.late_minutes)}</Text></> : <Pressable disabled={busy || !schedule} style={[s.button, (busy || !schedule) && s.disabled]} onPress={tapCheckIn}><Text style={s.buttonText}>Tap Absen Masuk</Text></Pressable>}</View>
       <View style={s.card}><Text style={s.step}>Jam Pulang</Text>{attendance?.check_out ? <><Text style={s.time}>{attendance.check_out.slice(0, 5)}</Text><Text style={[s.result, attendance.early_leave_minutes > 0 && s.warning]}>{checkOutResult(attendance.early_leave_minutes)}</Text></> : <Pressable disabled={busy || !attendance?.check_in} style={[s.button, (busy || !attendance?.check_in) && s.disabled]} onPress={tapCheckOut}><Text style={s.buttonText}>{attendance?.check_in ? 'Tap Absen Pulang' : 'Absen masuk terlebih dahulu'}</Text></Pressable>}</View>
@@ -125,7 +128,7 @@ export default function Attendance() {
       <Pressable disabled={busy} style={[s.button,busy && s.disabled]} onPress={saveReport}><Text style={s.buttonText}>Simpan Laporan Harian</Text></Pressable>
     </View>}
     {!!message && <Text style={s.message}>{message}</Text>}
-  </ScrollView></KeyboardAvoidingView>;
+  </KeyboardScroll>;
 }
 
 const s=StyleSheet.create({page:{flex:1,backgroundColor:'#f7faf8'},content:{padding:24,paddingTop:56,paddingBottom:48,gap:14},title:{fontSize:28,fontWeight:'900',color:'#18794e'},date:{fontSize:16,fontWeight:'700',color:'#526158'},scheduleCard:{backgroundColor:'#e3f2e8',padding:16,borderRadius:14,gap:4},scheduleTitle:{fontSize:18,fontWeight:'800',color:'#125f3d'},scheduleText:{color:'#35453b'},card:{backgroundColor:'#fff',padding:18,borderRadius:16,borderWidth:1,borderColor:'#dce8df',gap:12},step:{fontSize:19,fontWeight:'800'},time:{fontSize:34,fontWeight:'900',color:'#18794e'},result:{fontWeight:'800',color:'#18794e'},warning:{color:'#b54708'},button:{backgroundColor:'#18794e',padding:15,borderRadius:12,alignItems:'center'},disabled:{opacity:.45},buttonText:{color:'#fff',fontWeight:'800'},infoCard:{backgroundColor:'#fff8e7',padding:18,borderRadius:16,gap:7,borderWidth:1,borderColor:'#f1d596'},infoTitle:{fontSize:18,fontWeight:'800',color:'#8a4b08'},muted:{color:'#647168',lineHeight:20},row:{flexDirection:'row',gap:10},half:{flex:1,gap:7},label:{fontWeight:'700',marginTop:3},timePicker:{borderWidth:1,borderColor:'#cfd8d3',borderRadius:12,padding:14,backgroundColor:'#fff',alignItems:'center'},timePickerText:{fontSize:16,fontWeight:'800',color:'#18794e'},input:{borderWidth:1,borderColor:'#cfd8d3',borderRadius:12,padding:13,backgroundColor:'#fff',fontSize:16,color:'#1f2a24'},area:{minHeight:95,textAlignVertical:'top'},reportCard:{backgroundColor:'#eef6ff',padding:18,borderRadius:16,borderWidth:1,borderColor:'#c9ddf3',gap:10},reportTitle:{fontSize:20,fontWeight:'900',color:'#225a91'},message:{lineHeight:21,fontWeight:'600',color:'#35453b'}});
