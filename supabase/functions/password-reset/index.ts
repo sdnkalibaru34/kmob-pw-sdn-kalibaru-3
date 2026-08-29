@@ -50,14 +50,15 @@ Deno.serve(async (req) => {
       const password = randomPassword();
       const { error: authError } = await db.auth.admin.updateUserById(employee.auth_user_id, { password, user_metadata: { must_change_password: false } });
       if (authError) return respond({ error: authError.message }, 500);
-      const { error: updateError } = await db.from('password_reset_requests').update({ status: 'completed', employee_id: employee.id, completed_at: new Date().toISOString(), completed_by: authData.user.id }).eq('id', request.id);
+      const { error: updateError } = await db.from('password_reset_requests').update({ status: 'completed', employee_id: employee.id, completed_at: new Date().toISOString(), completed_by: authData.user.id }).eq('login_code', request.login_code).eq('status', 'pending');
       if (updateError) return respond({ error: updateError.message }, 500);
       return respond({ ok: true, fullName: employee.full_name, employeeCode: employee.employee_code, temporaryPassword: password });
     }
 
     if (body.action === 'dismiss') {
-      const { error } = await db.from('password_reset_requests').update({ status: 'cancelled', completed_at: new Date().toISOString(), completed_by: authData.user.id }).eq('id', String(body.requestId ?? '')).eq('status', 'pending');
+      const { data, error } = await db.from('password_reset_requests').update({ status: 'cancelled', completed_at: new Date().toISOString(), completed_by: authData.user.id }).eq('id', String(body.requestId ?? '')).eq('status', 'pending').select('id').maybeSingle();
       if (error) return respond({ error: error.message }, 500);
+      if (!data) return respond({ error: 'Permintaan reset tidak ditemukan atau sudah ditangani.' }, 404);
       return respond({ ok: true });
     }
     return respond({ error: 'Aksi tidak dikenali.' }, 400);
