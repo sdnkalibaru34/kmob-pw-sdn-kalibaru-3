@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import type { Attendance, AttendanceStatus, DailyReport, Employee, ShiftLabel } from './types';
+import type { Attendance, AttendanceStatus, DailyReport, Employee, ShiftLabel, WorkPattern } from './types';
 
 export async function currentEmployee(): Promise<Employee> {
   const { data: userData, error: userError } = await supabase.auth.getUser();
@@ -10,7 +10,7 @@ export async function currentEmployee(): Promise<Employee> {
 }
 
 export async function saveAttendance(input: {
-  date: string; checkIn: string; checkOut: string; shiftLabel: ShiftLabel; status: AttendanceStatus; note: string;
+  date: string; checkIn: string; checkOut: string; shiftLabel: ShiftLabel; workPattern: WorkPattern; status: AttendanceStatus; note: string;
 }) {
   const employee = await currentEmployee();
   const { error } = await supabase.from('attendance').upsert({
@@ -19,30 +19,33 @@ export async function saveAttendance(input: {
     check_in: input.checkIn || null,
     check_out: input.checkOut || null,
     shift_label: input.shiftLabel,
+    work_pattern: input.workPattern,
     status: input.status,
     note: input.note.trim() || null,
   }, { onConflict: 'employee_id,attendance_date' });
   if (error) throw error;
 }
 
-export async function recordCheckIn(date: string, shiftLabel: ShiftLabel, checkIn: string): Promise<Attendance> {
+export async function recordCheckIn(date: string, shiftLabel: ShiftLabel, workPattern: WorkPattern, checkIn: string): Promise<Attendance> {
   const employee = await currentEmployee();
   const { data, error } = await supabase.from('attendance').upsert({
     employee_id: employee.id,
     attendance_date: date,
     check_in: checkIn,
     shift_label: shiftLabel,
+    work_pattern: workPattern,
     status: 'Hadir',
   }, { onConflict: 'employee_id,attendance_date' }).select('*').single();
   if (error || !data) throw error ?? new Error('Absensi masuk belum dapat disimpan.');
   return data as Attendance;
 }
 
-export async function recordCheckOut(date: string, shiftLabel: ShiftLabel, checkOut: string): Promise<Attendance> {
+export async function recordCheckOut(date: string, shiftLabel: ShiftLabel, workPattern: WorkPattern, checkOut: string): Promise<Attendance> {
   const employee = await currentEmployee();
   const { data, error } = await supabase.from('attendance').update({
     check_out: checkOut,
     shift_label: shiftLabel,
+    work_pattern: workPattern,
     status: 'Hadir',
   }).eq('employee_id', employee.id).eq('attendance_date', date).not('check_in', 'is', null).select('*').single();
   if (error || !data) throw error ?? new Error('Absensi pulang belum dapat disimpan.');
@@ -50,16 +53,16 @@ export async function recordCheckOut(date: string, shiftLabel: ShiftLabel, check
 }
 
 export async function submitAbsenceRequest(input: {
-  startDate: string; endDate: string; status: Exclude<AttendanceStatus, 'Hadir' | 'Tanpa Keterangan'>; note: string; shiftLabel: ShiftLabel;
+  startDate: string; endDate: string; status: Exclude<AttendanceStatus, 'Hadir' | 'Tanpa Keterangan'>; note: string; shiftLabel: ShiftLabel; workPattern: WorkPattern;
 }) {
   const employee = await currentEmployee();
-  const dates = (await workCalendar(input.startDate, input.endDate)).map(row => row.work_date);
+  const dates = (await workCalendar(input.startDate, input.endDate, input.workPattern)).map(row => row.work_date);
   if (!dates.length) throw new Error('Rentang ini tidak memiliki hari kerja.');
   const existing = await ownAttendance(input.startDate, input.endDate);
   if (existing.some(row => row.check_in || row.check_out)) throw new Error('Sebagian rentang sudah memiliki data absensi.');
   const { error } = await supabase.from('attendance').upsert(dates.map(date => ({
     employee_id: employee.id, attendance_date: date, check_in: null, check_out: null,
-    shift_label: input.shiftLabel, status: input.status, note: input.note.trim(),
+    shift_label: input.shiftLabel, work_pattern: input.workPattern, status: input.status, note: input.note.trim(),
   })), { onConflict: 'employee_id,attendance_date' });
   if (error) throw error;
   return dates.length;
@@ -87,15 +90,19 @@ export async function saveOwnProfilePhoto(bytes: ArrayBuffer, contentType: strin
 }
 
 export async function ownDefaultShift(): Promise<ShiftLabel> {
-  const employee = await currentEmployee();
-  const { data, error } = await supabase.from('employee_shift_preferences').select('default_shift').eq('employee_id', employee.id).single();
-  if (error || !data) throw new Error('Shift utama belum dapat dimuat.');
-  return data.default_shift as ShiftLabel;
+  return (await ownWorkPreference()).shift;
 }
 
-export async function updateOwnDefaultShift(defaultShift: ShiftLabel) {
+export async function ownWorkPreference(): Promise<{ shift: ShiftLabel; workPattern: WorkPattern }> {
   const employee = await currentEmployee();
-  const { error } = await supabase.from('employee_shift_preferences').update({ default_shift: defaultShift, updated_at: new Date().toISOString() }).eq('employee_id', employee.id);
+  const { data, error } = await supabase.from('employee_shift_preferences').select('default_shift,work_pattern').eq('employee_id', employee.id).single();
+  if (error || !data) throw new Error('Shift utama belum dapat dimuat.');
+  return { shift: data.default_shift as ShiftLabel, workPattern: data.work_pattern as WorkPattern };
+}
+
+export async function updateOwnWorkPreference(defaultShift: ShiftLabel, workPattern: WorkPattern) {
+  const employee = await currentEmployee();
+  const { error } = await supabase.from('employee_shift_preferences').update({ default_shift: defaultShift, work_pattern: workPattern, updated_at: new Date().toISOString() }).eq('employee_id', employee.id);
   if (error) throw error;
 }
 
@@ -109,10 +116,10 @@ export async function ownAttendance(from?: string, to?: string): Promise<Attenda
   return (data ?? []) as Attendance[];
 }
 
-export async function workCalendar(from: string, to: string) {
+export async function workCalendar(from: string, to: string, workPattern?: WorkPattern) {
   const { data, error } = await supabase.from('work_calendar').select('work_date,is_workday,description').gte('work_date', from).lte('work_date', to).eq('is_workday', true).order('work_date');
   if (error) throw error;
-  return data ?? [];
+  return (data ?? []).filter(row => workPattern !== 'Opsi 1' || new Date(`${row.work_date}T00:00:00`).getDay() !== 6);
 }
 
 export async function addDailyReport(input: { date: string; activity: string; result: string; note: string; }) {
