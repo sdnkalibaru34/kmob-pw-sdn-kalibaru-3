@@ -32,7 +32,7 @@ export default function AbsenceRequest() {
     catch(error){setMessage(error instanceof Error?error.message:'Pengajuan belum dapat disimpan.')}
     finally{setBusy(false)}
   };
-  return <KeyboardScroll style={s.page} contentContainerStyle={s.content}><Text style={s.title}>Pengajuan Tidak Hadir</Text><Text style={s.info}>Untuk izin, sakit, cuti, atau dinas luar. {workPattern} · shift {shift} menjadi acuan jadwal.</Text>
+  return <KeyboardScroll style={s.page} contentContainerStyle={s.content}><Text style={s.title}>Pengajuan Tidak Hadir</Text><Text style={s.info}>Untuk izin, sakit, cuti, atau dinas luar. {workPattern==='Opsi 1'?'5 hari kerja':'6 hari kerja'} · shift {shift} menjadi acuan jadwal.</Text>
     <View style={s.dateRow}><View style={s.dateField}><Text style={s.label}>Mulai</Text><Pressable style={s.dateButton} onPress={()=>setDateField('start')}><Text style={s.dateText}>{startDate}</Text></Pressable></View><View style={s.dateField}><Text style={s.label}>Sampai</Text><Pressable style={s.dateButton} onPress={()=>setDateField('end')}><Text style={s.dateText}>{endDate}</Text></Pressable></View></View>
     {dateField&&<DateTimePicker value={dateValue(dateField==='start'?startDate:endDate)} mode="date" display="calendar" minimumDate={dateField==='end'?dateValue(startDate):undefined} onChange={selectDate}/>} 
     <Text style={s.label}>Jenis pengajuan</Text><View style={s.chips}>{statuses.map(x=><Pressable key={x} style={[s.chip,status===x&&s.chipOn]} onPress={()=>setStatus(x)}><Text style={status===x?s.chipTextOn:s.chipText}>{x}</Text></Pressable>)}</View>
