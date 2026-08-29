@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { router } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { jakartaDate } from '@/lib/date';
-import { ownAttendance, workCalendar } from '@/lib/data';
+import { ownAttendance, ownWorkPreference, workCalendar } from '@/lib/data';
 import { checkInResult, checkOutResult } from '@/lib/schedule';
 
 type Item={date:string;state:string;detail:string};
@@ -10,7 +10,7 @@ export default function Recap(){
  const [items,setItems]=useState<Item[]>([]);const [busy,setBusy]=useState(true);const [message,setMessage]=useState('');
  const load=async()=>{setBusy(true);setMessage('');try{
    const today=jakartaDate();const from=today.slice(0,8)+'01';
-   const [calendar,attendance]=await Promise.all([workCalendar(from,today),ownAttendance(from,today)]);
+   const preference=await ownWorkPreference();const [calendar,attendance]=await Promise.all([workCalendar(from,today,preference.workPattern),ownAttendance(from,today)]);
    const map=new Map(attendance.map(a=>[a.attendance_date,a]));
    setItems(calendar.map(day=>{const a=map.get(day.work_date);if(!a)return{date:day.work_date,state:day.work_date<today?'Tanpa Keterangan':'Belum absen',detail:day.description??'Hari kerja'};
      if(['Izin','Sakit','Cuti','Dinas Luar'].includes(a.status))return{date:day.work_date,state:a.status,detail:'Pengajuan Tidak Hadir'};
