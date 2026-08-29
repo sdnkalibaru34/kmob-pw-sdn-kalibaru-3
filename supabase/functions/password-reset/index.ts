@@ -20,11 +20,12 @@ Deno.serve(async (req) => {
     if (req.method !== 'POST') return respond({ error: 'Method not allowed' }, 405);
     const url = Deno.env.get('SUPABASE_URL')!;
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const db = createClient(url, serviceKey, { auth: { persistSession: false } });
+    const db = createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false }, global: { headers: { Authorization: `Bearer ${serviceKey}` } } });
     const body = await req.json().catch(() => ({}));
 
     const token = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '');
-    const { data: authData } = await db.auth.getUser(token);
+    const authClient = createClient(url, Deno.env.get('SUPABASE_ANON_KEY')!, { auth: { persistSession: false, autoRefreshToken: false }, global: { headers: { Authorization: `Bearer ${token}` } } });
+    const { data: authData } = await authClient.auth.getUser(token);
     if (!authData.user || authData.user.app_metadata?.role !== 'admin') return respond({ error: 'Akses admin diperlukan.' }, 403);
 
     if (body.action === 'list') {
@@ -54,7 +55,7 @@ Deno.serve(async (req) => {
     }
 
     if (body.action === 'dismiss') {
-      const { error } = await db.from('password_reset_requests').update({ status: 'dismissed', completed_at: new Date().toISOString(), completed_by: authData.user.id }).eq('id', String(body.requestId ?? '')).eq('status', 'pending');
+      const { error } = await db.from('password_reset_requests').update({ status: 'cancelled', completed_at: new Date().toISOString(), completed_by: authData.user.id }).eq('id', String(body.requestId ?? '')).eq('status', 'pending');
       if (error) return respond({ error: error.message }, 500);
       return respond({ ok: true });
     }
