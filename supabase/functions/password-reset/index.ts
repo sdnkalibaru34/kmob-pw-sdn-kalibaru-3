@@ -19,8 +19,9 @@ Deno.serve(async (req) => {
     if (req.method === 'OPTIONS') return new Response('ok', { headers });
     if (req.method !== 'POST') return respond({ error: 'Method not allowed' }, 405);
     const url = Deno.env.get('SUPABASE_URL')!;
-    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const db = createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false }, global: { headers: { Authorization: `Bearer ${serviceKey}` } } });
+    const secretKeys = JSON.parse(Deno.env.get('SUPABASE_SECRET_KEYS') ?? '{}') as Record<string, string>;
+    const serviceKey = secretKeys.default ?? Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const db = createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
     const body = await req.json().catch(() => ({}));
 
     const token = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '');
