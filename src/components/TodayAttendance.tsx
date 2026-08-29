@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
+import { useFocusEffect } from 'expo-router';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { jakartaDate, jakartaTime } from '@/lib/date';
 import { addDailyReport, ownAttendance, ownReportForDate, ownWorkPreference, recordCheckIn, recordCheckOut } from '@/lib/data';
@@ -23,7 +24,7 @@ export default function TodayAttendance() {
     try {
       const [preference, rows] = await Promise.all([ownWorkPreference(), ownAttendance(date, date)]);
       const row = rows[0] ?? null;
-      setShift(row?.shift_label ?? preference.shift); setWorkPattern(row?.work_pattern ?? preference.workPattern); setAttendance(row);
+      setShift(preference.shift); setWorkPattern(preference.workPattern); setAttendance(row);
       if (row?.check_out) {
         const report = await ownReportForDate(date);
         setActivity(report?.activity ?? ''); setResult(report?.result ?? ''); setNote(report?.note ?? '');
@@ -31,7 +32,7 @@ export default function TodayAttendance() {
     } catch { setMessage('Absensi hari ini belum dapat dimuat.'); }
     finally { setBusy(false); }
   };
-  useEffect(() => { void load(); }, []);
+  useFocusEffect(useCallback(() => { void load(); }, []));
 
   const checkIn = async () => {
     setBusy(true); setMessage('');
