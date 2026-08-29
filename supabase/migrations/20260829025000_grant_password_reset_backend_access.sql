@@ -1,0 +1,1 @@
+-- Password reset mutations are restricted to the server-side service role.\ngrant select, update on table public.password_reset_requests to service_role;\n
