@@ -5,6 +5,7 @@ import type { ShiftLabel, WorkPattern } from './types';
 
 const STORAGE_KEY = 'kemob-attendance-notification-ids';
 const CHANNEL_ID = 'attendance-reminders';
+type StoredReminders = { signature: string; ids: string[] };
 
 if (Platform.OS === 'android') {
   Notifications.setNotificationHandler({
@@ -31,13 +32,19 @@ const timesFor = (shift: ShiftLabel, workPattern: WorkPattern) => {
 async function cancelStoredReminders() {
   if (Platform.OS !== 'android') return;
   const raw = await AsyncStorage.getItem(STORAGE_KEY);
-  const ids: string[] = raw ? JSON.parse(raw) : [];
+  const stored: string[] | StoredReminders = raw ? JSON.parse(raw) : [];
+  const ids = Array.isArray(stored) ? stored : stored.ids;
   await Promise.all(ids.map(id => Notifications.cancelScheduledNotificationAsync(id)));
   await AsyncStorage.removeItem(STORAGE_KEY);
 }
 
 export async function scheduleAttendanceReminders(shift: ShiftLabel, workPattern: WorkPattern) {
   if (Platform.OS !== 'android') return false;
+  const signature = `${workPattern}|${shift}`;
+  const raw = await AsyncStorage.getItem(STORAGE_KEY);
+  const stored: string[] | StoredReminders = raw ? JSON.parse(raw) : [];
+  const current = await Notifications.getPermissionsAsync();
+  if (!Array.isArray(stored) && stored.signature === signature && stored.ids.length > 0 && current.granted) return true;
 
   await Notifications.setNotificationChannelAsync(CHANNEL_ID, {
     name: 'Pengingat Absensi',
@@ -47,7 +54,6 @@ export async function scheduleAttendanceReminders(shift: ShiftLabel, workPattern
     vibrationPattern: [0, 250, 150, 250],
   });
 
-  const current = await Notifications.getPermissionsAsync();
   const permission = current.granted ? current : await Notifications.requestPermissionsAsync();
   if (!permission.granted) return false;
 
@@ -89,7 +95,7 @@ export async function scheduleAttendanceReminders(shift: ShiftLabel, workPattern
     }));
   }
 
-  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(ids));
+  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify({ signature, ids } satisfies StoredReminders));
   return true;
 }
 
