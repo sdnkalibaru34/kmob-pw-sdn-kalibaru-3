@@ -96,3 +96,17 @@ export async function scheduleAttendanceReminders(shift: ShiftLabel, workPattern
 export async function cancelAttendanceReminders() {
   await cancelStoredReminders();
 }
+
+export async function notifyRecapDownloadComplete(fileName: string) {
+  if (Platform.OS !== 'android') return;
+  const permission = await Notifications.getPermissionsAsync();
+  if (!permission.granted) return;
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title: 'Download Rekap Selesai',
+      body: `${fileName} selesai dibuat.`,
+      sound: 'default',
+    },
+    trigger: null,
+  });
+}
