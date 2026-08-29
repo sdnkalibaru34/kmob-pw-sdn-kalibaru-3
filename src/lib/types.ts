@@ -2,6 +2,7 @@ export type AbsenceStatus = 'Izin' | 'Sakit' | 'Cuti' | 'Dinas Luar';
 export type AttendanceStatus = 'Hadir' | AbsenceStatus | 'Tanpa Keterangan';
 
 export type ShiftLabel = 'Pagi' | 'Siang';
+export type WorkPattern = 'Opsi 1' | 'Opsi 2';
 
 export type Employee = {
   id: string;
@@ -18,6 +19,7 @@ export type Attendance = {
   check_in: string | null;
   check_out: string | null;
   shift_label: ShiftLabel;
+  work_pattern: WorkPattern;
   scheduled_start: string | null;
   scheduled_end: string | null;
   late_minutes: number;
