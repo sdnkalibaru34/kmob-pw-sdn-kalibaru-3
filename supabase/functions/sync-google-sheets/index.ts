@@ -1,7 +1,10 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2.57.4";
 
-const SPREADSHEET_ID = Deno.env.get("GOOGLE_SHEETS_SPREADSHEET_ID") ?? "";
+const SPREADSHEET_IDS: Record<string, string> = {
+  "sdn-kalibaru-3": Deno.env.get("GOOGLE_SHEETS_SPREADSHEET_ID_KALIBARU_3") ?? Deno.env.get("GOOGLE_SHEETS_SPREADSHEET_ID") ?? "",
+  "sdn-cilangkap-8": Deno.env.get("GOOGLE_SHEETS_SPREADSHEET_ID_CILANGKAP_8") ?? "",
+};
 const SERVICE_ACCOUNT_JSON = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_JSON") ?? "";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -63,10 +66,10 @@ async function googleAccessToken() {
   return token.access_token;
 }
 
-async function replaceSheet(token: string, sheet: string, values: unknown[][]) {
+async function replaceSheet(token: string, spreadsheetId: string, sheet: string, values: unknown[][]) {
   const clearRange = encodeURIComponent(`'${sheet}'!A:Z`);
   const updateRange = encodeURIComponent(`'${sheet}'!A1`);
-  const api = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values`;
+  const api = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values`;
   const clear = await fetch(`${api}/${clearRange}:clear`, { method: "POST", headers: { authorization: `Bearer ${token}` } });
   if (!clear.ok) throw new Error(`Gagal membersihkan tab ${sheet} (${clear.status}).`);
   const update = await fetch(`${api}/${updateRange}?valueInputOption=RAW`, {
@@ -82,7 +85,7 @@ Deno.serve(async (req) => {
   try {
     if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
     if (req.method !== "POST") return json({ error: "Gunakan metode POST." }, 405);
-    if (!SPREADSHEET_ID || !SERVICE_ACCOUNT_JSON) return json({ error: "Integrasi Google Sheets belum dikonfigurasi." }, 503);
+    if (!SERVICE_ACCOUNT_JSON) return json({ error: "Integrasi Google Sheets belum dikonfigurasi." }, 503);
 
     const cronSecret = req.headers.get("x-mbok-cron-secret") ?? "";
     const isCron = cronSecret.length >= 32 && constantTimeEqual(await sha256Hex(cronSecret), CRON_SECRET_SHA256);
@@ -94,7 +97,10 @@ Deno.serve(async (req) => {
       if (error || data.user?.app_metadata?.role !== "admin") return json({ error: "Khusus admin." }, 403);
     }
 
-    const requested = await req.json().catch(() => ({})) as { month?: string };
+    const requested = await req.json().catch(() => ({})) as { month?: string; schoolCode?: string };
+    const schoolCode = requested.schoolCode ?? "sdn-kalibaru-3";
+    const spreadsheetId = SPREADSHEET_IDS[schoolCode] ?? "";
+    if (!spreadsheetId) return json({ error: "Spreadsheet unit dinas ini belum dikonfigurasi." }, 503);
     const jakartaMonth = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta", year: "numeric", month: "2-digit" }).format(new Date());
     const month = /^\d{4}-\d{2}$/.test(requested.month ?? "") ? requested.month! : jakartaMonth;
     const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
@@ -106,12 +112,17 @@ Deno.serve(async (req) => {
 
     stage = "membaca data Supabase";
     const db = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, { auth: { persistSession: false } });
-    const [employeesResult, shiftsResult, calendarResult, attendanceResult, reportsResult] = await Promise.all([
-      db.from("employees").select("id,employee_code,full_name,position,ni_pppk,is_active").order("full_name"),
-      db.from("employee_shift_preferences").select("employee_id,default_shift"),
+    const { data: school, error: schoolError } = await db.from("schools").select("id,code,name").eq("code", schoolCode).eq("is_active", true).maybeSingle();
+    if (schoolError || !school) return json({ error: "Unit dinas tidak ditemukan." }, 404);
+    const employeesResult = await db.from("employees").select("id,employee_code,full_name,position,ni_pppk,is_active").eq("school_id", school.id).order("full_name");
+    if (employeesResult.error) throw employeesResult.error;
+    const employeeIds = (employeesResult.data ?? []).map((employee) => employee.id);
+    const empty = { data: [], error: null };
+    const [shiftsResult, calendarResult, attendanceResult, reportsResult] = await Promise.all([
+      employeeIds.length ? db.from("employee_shift_preferences").select("employee_id,default_shift").in("employee_id", employeeIds) : Promise.resolve(empty),
       db.from("work_calendar").select("work_date,is_workday,description").gte("work_date", calendarFrom).lte("work_date", calendarTo).order("work_date"),
-      db.from("attendance").select("employee_id,attendance_date,check_in,check_out,shift_label,scheduled_start,scheduled_end,late_minutes,early_leave_minutes,status,note,updated_at").gte("attendance_date", from).lte("attendance_date", to).order("attendance_date"),
-      db.from("daily_reports").select("employee_id,report_date,activity,result,note,updated_at").gte("report_date", from).lte("report_date", to).order("report_date"),
+      employeeIds.length ? db.from("attendance").select("employee_id,attendance_date,check_in,check_out,shift_label,scheduled_start,scheduled_end,late_minutes,early_leave_minutes,status,note,updated_at").in("employee_id", employeeIds).gte("attendance_date", from).lte("attendance_date", to).order("attendance_date") : Promise.resolve(empty),
+      employeeIds.length ? db.from("daily_reports").select("employee_id,report_date,activity,result,note,updated_at").in("employee_id", employeeIds).gte("report_date", from).lte("report_date", to).order("report_date") : Promise.resolve(empty),
     ]);
     const failed = [employeesResult, shiftsResult, calendarResult, attendanceResult, reportsResult].find((result) => result.error);
     if (failed?.error) throw failed.error;
@@ -156,8 +167,8 @@ Deno.serve(async (req) => {
     stage = "autentikasi Google";
     const token = await googleAccessToken();
     stage = "menulis Google Sheets";
-    await Promise.all(Object.entries(sheets).map(([sheet, values]) => replaceSheet(token, sheet, values)));
-    return json({ ok: true, month, rows: { employees: employees.length, attendance: attendance.length, reports: reports.length } });
+    await Promise.all(Object.entries(sheets).map(([sheetName, values]) => replaceSheet(token, spreadsheetId, sheetName, values)));
+    return json({ ok: true, month, schoolCode, schoolName: school.name, rows: { employees: employees.length, attendance: attendance.length, reports: reports.length } });
   } catch (error) {
     console.error(error);
     const detail = error instanceof Error

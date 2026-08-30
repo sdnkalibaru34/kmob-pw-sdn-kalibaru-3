@@ -22,7 +22,7 @@ export default function Login() {
   return <KeyboardAvoidingView style={s.page} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={8}><ScrollView contentContainerStyle={s.scrollContent} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}><View style={s.card}>
     <Image source={require('../assets/icon.png')} style={s.logo} resizeMode="contain" />
     <Text style={s.tagline}>KW aplikasinya, ori kehadirannya.</Text>
-    <Text style={s.brand}>KEMOB KW</Text><Text style={s.title}>Absensi Internal PPPK Paruh Waktu SDN Kalibaru 3</Text>
+    <Text style={s.brand}>KEMOB KW</Text><Text style={s.title}>Absensi Internal PPPK Paruh Waktu</Text>
     <TextInput
       style={s.input}
       placeholder={useEmployeeCode ? 'Kode pegawai' : 'NI PPPK'}
@@ -45,7 +45,7 @@ export default function Login() {
     /><Pressable style={s.showButton} onPress={() => setShowPassword(value => !value)}><Text style={s.showText}>{showPassword ? 'Sembunyikan' : 'Tampilkan'}</Text></Pressable></View>
     {!!message && <Text style={s.error}>{message}</Text>}
     <Pressable style={s.button} onPress={submit} disabled={busy}>{busy ? <ActivityIndicator color="#fff" /> : <Text style={s.buttonText}>Masuk</Text>}</Pressable>
-    <Text style={s.disclaimer}>Aplikasi internal SDN Kalibaru 3. Bukan aplikasi resmi KMOB dan tidak berafiliasi dengan pengelola KMOB.</Text>
+    <Text style={s.disclaimer}>Aplikasi absensi internal. Bukan aplikasi resmi KMOB dan tidak berafiliasi dengan pengelola KMOB.</Text>
     <Link href="/privacy" style={s.link}>Kebijakan Privasi</Link>
   </View></ScrollView></KeyboardAvoidingView>;
 }

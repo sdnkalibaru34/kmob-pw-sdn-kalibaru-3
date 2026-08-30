@@ -30,12 +30,29 @@ const securedHandler = withSupabase({ auth: "user" }, async (req, ctx) => {
 
     const body = await req.json().catch(() => ({}));
     const db = ctx.supabaseAdmin;
+    const schoolCode = String(body.schoolCode ?? "");
+    const { data: school, error: schoolError } = await db
+      .from("schools")
+      .select("id,code,name")
+      .eq("code", schoolCode)
+      .eq("is_active", true)
+      .maybeSingle();
+    if (schoolError || !school) return respond({ error: "Unit dinas tidak ditemukan." }, 404);
 
     if (body.action === "list") {
+      const { data: employees, error: employeesError } = await db
+        .from("employees")
+        .select("employee_code,ni_pppk")
+        .eq("school_id", school.id)
+        .eq("is_active", true);
+      if (employeesError) return respond({ error: "Data pegawai belum dapat dimuat." }, 500);
+      const loginCodes = [...new Set((employees ?? []).flatMap((employee) => [employee.employee_code, employee.ni_pppk].filter(Boolean)))];
+      if (!loginCodes.length) return respond({ ok: true, requests: [] });
       const { data, error } = await db
         .from("password_reset_requests")
         .select("id,requested_at,login_code")
         .eq("status", "pending")
+        .in("login_code", loginCodes)
         .order("requested_at");
       if (error) {
         console.error("list reset requests:", error);
@@ -62,14 +79,16 @@ const securedHandler = withSupabase({ auth: "user" }, async (req, ctx) => {
 
       let { data: employee, error: employeeError } = await db
         .from("employees")
-        .select("id,full_name,employee_code,auth_user_id")
+        .select("id,full_name,employee_code,auth_user_id,school_id")
+        .eq("school_id", school.id)
         .eq("employee_code", request.login_code)
         .eq("is_active", true)
         .maybeSingle();
       if (!employee && !employeeError) {
         const fallback = await db
           .from("employees")
-          .select("id,full_name,employee_code,auth_user_id")
+          .select("id,full_name,employee_code,auth_user_id,school_id")
+          .eq("school_id", school.id)
           .eq("ni_pppk", request.login_code)
           .eq("is_active", true)
           .maybeSingle();
@@ -119,6 +138,22 @@ const securedHandler = withSupabase({ auth: "user" }, async (req, ctx) => {
 
     if (body.action === "dismiss") {
       const requestId = String(body.requestId ?? "");
+      const { data: request } = await db
+        .from("password_reset_requests")
+        .select("id,login_code")
+        .eq("id", requestId)
+        .eq("status", "pending")
+        .maybeSingle();
+      if (!request?.login_code) return respond({ error: "Permintaan reset tidak ditemukan." }, 404);
+      const { data: matchingEmployees } = await db
+        .from("employees")
+        .select("employee_code,ni_pppk")
+        .eq("school_id", school.id)
+        .eq("is_active", true);
+      const belongsToSchool = (matchingEmployees ?? []).some((employee) =>
+        employee.employee_code === request.login_code || employee.ni_pppk === request.login_code
+      );
+      if (!belongsToSchool) return respond({ error: "Permintaan reset bukan milik unit dinas ini." }, 403);
       const { data, error } = await db
         .from("password_reset_requests")
         .update({

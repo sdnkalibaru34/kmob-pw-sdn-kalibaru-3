@@ -18,9 +18,10 @@ export async function currentEmployee(): Promise<Employee> {
   if (employeeCache?.userId === userId) return employeeCache.value;
   if (employeeRequest) return employeeRequest;
   employeeRequest = (async () => {
-    const { data, error } = await supabase.from('employees').select('id,employee_code,full_name,position,ni_pppk').eq('auth_user_id', userId).single();
+    const { data, error } = await supabase.from('employees').select('id,school_id,employee_code,full_name,position,ni_pppk,school:schools!employees_school_id_fkey(code,name)').eq('auth_user_id', userId).single();
     if (error || !data) throw new Error('Akun belum terhubung dengan data pegawai.');
-    const value = data as Employee;
+    const row = data as unknown as Omit<Employee, 'school_code' | 'unit_name'> & { school: { code: string; name: string } };
+    const value = { ...row, school_code: row.school.code, unit_name: row.school.name } as Employee;
     employeeCache = { userId, value };
     return value;
   })();
@@ -179,8 +180,8 @@ export async function ownReportsRange(from: string, to: string): Promise<DailyRe
   return (data ?? []) as DailyReport[];
 }
 
-export async function syncGoogleSheets(month: string) {
-  const { data, error } = await supabase.functions.invoke('sync-google-sheets', { body: { month } });
+export async function syncGoogleSheets(month: string, schoolCode = 'sdn-kalibaru-3') {
+  const { data, error } = await supabase.functions.invoke('sync-google-sheets', { body: { month, schoolCode } });
   if (error) throw error;
   if (!data?.ok) throw new Error(data?.error ?? 'Sinkronisasi Google Sheets gagal.');
   return data as { ok: true; month: string; rows: { employees: number; attendance: number; reports: number } };

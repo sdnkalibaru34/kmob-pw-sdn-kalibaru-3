@@ -4,8 +4,18 @@ export type AttendanceStatus = 'Hadir' | AbsenceStatus | 'Tanpa Keterangan';
 export type ShiftLabel = 'Pagi' | 'Siang';
 export type WorkPattern = 'Opsi 1' | 'Opsi 2';
 
+export type School = {
+  id: string;
+  code: string;
+  name: string;
+  is_active: boolean;
+};
+
 export type Employee = {
   id: string;
+  school_id: string;
+  school_code: string;
+  unit_name: string;
   employee_code: string;
   full_name: string;
   position: 'Guru' | 'Tenaga Kependidikan';
