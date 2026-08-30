@@ -18,10 +18,10 @@ export async function currentEmployee(): Promise<Employee> {
   if (employeeCache?.userId === userId) return employeeCache.value;
   if (employeeRequest) return employeeRequest;
   employeeRequest = (async () => {
-    const { data, error } = await supabase.from('employees').select('id,school_id,employee_code,full_name,position,ni_pppk,school:schools!employees_school_id_fkey(code,name)').eq('auth_user_id', userId).single();
+    const { data, error } = await supabase.from('employees').select('id,school_id,employee_code,full_name,position,ni_pppk,school:schools!employees_school_id_fkey(code,name,principal_name,principal_nip)').eq('auth_user_id', userId).single();
     if (error || !data) throw new Error('Akun belum terhubung dengan data pegawai.');
-    const row = data as unknown as Omit<Employee, 'school_code' | 'unit_name'> & { school: { code: string; name: string } };
-    const value = { ...row, school_code: row.school.code, unit_name: row.school.name } as Employee;
+    const row = data as unknown as Omit<Employee, 'school_code' | 'unit_name' | 'principal_name' | 'principal_nip'> & { school: { code: string; name: string; principal_name: string | null; principal_nip: string | null } };
+    const value = { ...row, school_code: row.school.code, unit_name: row.school.name, principal_name: row.school.principal_name, principal_nip: row.school.principal_nip } as Employee;
     employeeCache = { userId, value };
     return value;
   })();

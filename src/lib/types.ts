@@ -9,6 +9,8 @@ export type School = {
   code: string;
   name: string;
   is_active: boolean;
+  principal_name: string | null;
+  principal_nip: string | null;
 };
 
 export type Employee = {
@@ -16,6 +18,8 @@ export type Employee = {
   school_id: string;
   school_code: string;
   unit_name: string;
+  principal_name: string | null;
+  principal_nip: string | null;
   employee_code: string;
   full_name: string;
   position: 'Guru' | 'Tenaga Kependidikan';
