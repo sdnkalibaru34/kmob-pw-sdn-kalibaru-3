@@ -2,6 +2,16 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Platform, Text, TextInput } from 'react-native';
 import { useFonts, Inter_400Regular } from '@expo-google-fonts/inter';
+import * as Notifications from 'expo-notifications';
+
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+    shouldShowBanner: true,
+    shouldShowList: true,
+  }),
+});
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({ Inter_400Regular });

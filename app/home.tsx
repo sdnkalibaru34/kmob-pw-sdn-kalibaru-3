@@ -14,7 +14,7 @@ const menu=[['Pengajuan Tidak Hadir','/absence-request'],['Shift Saya','/shift-s
 
 export default function Home(){
  const[admin,setAdmin]=useState(false);const[employee,setEmployee]=useState<Employee|null>(null);const[photo,setPhoto]=useState<string|null>(null);const[uploading,setUploading]=useState(false);const[message,setMessage]=useState('');
- useEffect(()=>{void (async()=>{try{const{data}=await supabase.auth.getSession();const user=data.session?.user;if(user?.user_metadata?.must_change_password===true)return router.replace('/change-password');setAdmin(user?.app_metadata?.role==='admin');const[profile,url,preference]=await Promise.all([currentEmployee(),ownProfilePhotoUrl(),ownWorkPreference()]);setEmployee(profile);setPhoto(url);void scheduleAttendanceReminders(preference.shift,preference.workPattern)}catch{setMessage('Profil belum dapat dimuat.')}})()},[]);
+ useEffect(()=>{void (async()=>{try{const{data}=await supabase.auth.getSession();const user=data.session?.user;if(user?.user_metadata?.must_change_password===true)return router.replace('/change-password');setAdmin(user?.app_metadata?.role==='admin');const[profile,url,preference]=await Promise.all([currentEmployee(),ownProfilePhotoUrl(),ownWorkPreference()]);setEmployee(profile);setPhoto(url);await scheduleAttendanceReminders(preference.shift,preference.workPattern)}catch{setMessage('Profil belum dapat dimuat.')}})()},[]);
  const pickPhoto=async()=>{
   setMessage('');
   const selected=await ImagePicker.launchImageLibraryAsync({mediaTypes:['images'],allowsEditing:true,aspect:[1,1],quality:.65});

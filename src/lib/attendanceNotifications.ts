@@ -4,19 +4,21 @@ import { Platform } from 'react-native';
 import type { ShiftLabel, WorkPattern } from './types';
 
 const STORAGE_KEY = 'kemob-attendance-notification-ids';
-const CHANNEL_ID = 'attendance-reminders';
-type StoredReminders = { signature: string; ids: string[] };
+const CHANNEL_ID = 'attendance-reminders-v2';
+const SCHEDULER_VERSION = 2;
+const SCHEDULE_DAYS = 90;
+const RESCHEDULE_WHEN_DAYS_LEFT = 14;
 
-if (Platform.OS === 'android') {
-  Notifications.setNotificationHandler({
-    handleNotification: async () => ({
-      shouldPlaySound: true,
-      shouldSetBadge: false,
-      shouldShowBanner: true,
-      shouldShowList: true,
-    }),
-  });
-}
+type StoredReminders = {
+  signature: string;
+  ids: string[];
+  scheduledUntil: string;
+  version: number;
+};
+
+export type ReminderScheduleResult =
+  | { ok: true; scheduledCount: number }
+  | { ok: false; reason: 'unsupported' | 'permission-denied' | 'schedule-failed' };
 
 const timesFor = (shift: ShiftLabel, workPattern: WorkPattern) => {
   if (workPattern === 'Opsi 1') {
@@ -29,74 +31,130 @@ const timesFor = (shift: ShiftLabel, workPattern: WorkPattern) => {
     : { checkIn: [10, 20], checkOut: [17, 0] };
 };
 
+const isWorkday = (date: Date, workPattern: WorkPattern) => {
+  const day = date.getDay();
+  return day >= 1 && day <= (workPattern === 'Opsi 1' ? 5 : 6);
+};
+
+const atLocalTime = (date: Date, [hour, minute]: number[]) => {
+  const result = new Date(date);
+  result.setHours(hour, minute, 0, 0);
+  return result;
+};
+
+const readStoredReminders = async (): Promise<StoredReminders | null> => {
+  try {
+    const raw = await AsyncStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<StoredReminders> | string[];
+    if (Array.isArray(parsed)) return null;
+    if (!parsed.signature || !Array.isArray(parsed.ids) || !parsed.scheduledUntil || parsed.version !== SCHEDULER_VERSION) return null;
+    return parsed as StoredReminders;
+  } catch {
+    return null;
+  }
+};
+
 async function cancelStoredReminders() {
   if (Platform.OS !== 'android') return;
-  const raw = await AsyncStorage.getItem(STORAGE_KEY);
-  const stored: string[] | StoredReminders = raw ? JSON.parse(raw) : [];
-  const ids = Array.isArray(stored) ? stored : stored.ids;
-  await Promise.all(ids.map(id => Notifications.cancelScheduledNotificationAsync(id)));
+  try {
+    const raw = await AsyncStorage.getItem(STORAGE_KEY);
+    const parsed: string[] | Partial<StoredReminders> = raw ? JSON.parse(raw) : [];
+    const ids = Array.isArray(parsed) ? parsed : Array.isArray(parsed.ids) ? parsed.ids : [];
+    await Promise.allSettled(ids.map(id => Notifications.cancelScheduledNotificationAsync(id)));
+  } catch {
+    // A corrupt local cache must not prevent a clean schedule from being created.
+  }
   await AsyncStorage.removeItem(STORAGE_KEY);
 }
 
-export async function scheduleAttendanceReminders(shift: ShiftLabel, workPattern: WorkPattern) {
-  if (Platform.OS !== 'android') return false;
-  const signature = `${workPattern}|${shift}`;
-  const raw = await AsyncStorage.getItem(STORAGE_KEY);
-  const stored: string[] | StoredReminders = raw ? JSON.parse(raw) : [];
-  const current = await Notifications.getPermissionsAsync();
-  if (!Array.isArray(stored) && stored.signature === signature && stored.ids.length > 0 && current.granted) return true;
+async function storedScheduleIsHealthy(stored: StoredReminders, signature: string) {
+  if (stored.signature !== signature || stored.ids.length === 0) return false;
+  const refreshAt = new Date(stored.scheduledUntil);
+  refreshAt.setDate(refreshAt.getDate() - RESCHEDULE_WHEN_DAYS_LEFT);
+  if (refreshAt.getTime() <= Date.now()) return false;
+
+  const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+  const liveIds = new Set(scheduled.map(item => item.identifier));
+  return stored.ids.every(id => liveIds.has(id));
+}
+
+async function scheduleOne(date: Date, kind: 'check-in' | 'check-out') {
+  const isCheckIn = kind === 'check-in';
+  return Notifications.scheduleNotificationAsync({
+    content: {
+      title: isCheckIn ? 'Pengingat Absen Masuk' : 'Pengingat Absen Pulang',
+      body: isCheckIn
+        ? 'Jam masuk 10 menit lagi. Jangan lupa tap absen masuk di KEMOB KW.'
+        : 'Jam kerja sudah selesai. Jangan lupa tap absen pulang di KEMOB KW.',
+      sound: 'default',
+      priority: Notifications.AndroidNotificationPriority.MAX,
+      data: { route: '/home', reminder: kind },
+    },
+    trigger: {
+      type: Notifications.SchedulableTriggerInputTypes.DATE,
+      date,
+      channelId: CHANNEL_ID,
+    },
+  });
+}
+
+export async function scheduleAttendanceReminders(
+  shift: ShiftLabel,
+  workPattern: WorkPattern,
+  force = false,
+): Promise<ReminderScheduleResult> {
+  if (Platform.OS !== 'android') return { ok: false, reason: 'unsupported' };
 
   await Notifications.setNotificationChannelAsync(CHANNEL_ID, {
     name: 'Pengingat Absensi',
     description: 'Pengingat absen masuk dan absen pulang KEMOB KW.',
-    importance: Notifications.AndroidImportance.HIGH,
+    importance: Notifications.AndroidImportance.MAX,
     sound: 'default',
-    vibrationPattern: [0, 250, 150, 250],
+    vibrationPattern: [0, 300, 150, 300],
+    lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
   });
 
+  const current = await Notifications.getPermissionsAsync();
   const permission = current.granted ? current : await Notifications.requestPermissionsAsync();
-  if (!permission.granted) return false;
+  if (!permission.granted) return { ok: false, reason: 'permission-denied' };
 
-  await cancelStoredReminders();
-  const times = timesFor(shift, workPattern);
-  const weekdays = workPattern === 'Opsi 1' ? [2, 3, 4, 5, 6] : [2, 3, 4, 5, 6, 7];
-  const ids: string[] = [];
-
-  for (const weekday of weekdays) {
-    ids.push(await Notifications.scheduleNotificationAsync({
-      content: {
-        title: 'Pengingat Absen Masuk',
-        body: 'Jam masuk 10 menit lagi. Jangan lupa tap absen masuk di KEMOB KW.',
-        sound: 'default',
-        data: { route: '/home', reminder: 'check-in' },
-      },
-      trigger: {
-        type: Notifications.SchedulableTriggerInputTypes.WEEKLY,
-        weekday,
-        hour: times.checkIn[0],
-        minute: times.checkIn[1],
-        channelId: CHANNEL_ID,
-      },
-    }));
-    ids.push(await Notifications.scheduleNotificationAsync({
-      content: {
-        title: 'Pengingat Absen Pulang',
-        body: 'Jam kerja sudah selesai. Jangan lupa tap absen pulang di KEMOB KW.',
-        sound: 'default',
-        data: { route: '/home', reminder: 'check-out' },
-      },
-      trigger: {
-        type: Notifications.SchedulableTriggerInputTypes.WEEKLY,
-        weekday,
-        hour: times.checkOut[0],
-        minute: times.checkOut[1],
-        channelId: CHANNEL_ID,
-      },
-    }));
+  const signature = `${SCHEDULER_VERSION}|${workPattern}|${shift}`;
+  const stored = await readStoredReminders();
+  if (!force && stored && await storedScheduleIsHealthy(stored, signature)) {
+    return { ok: true, scheduledCount: stored.ids.length };
   }
 
-  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify({ signature, ids } satisfies StoredReminders));
-  return true;
+  await cancelStoredReminders();
+  const now = new Date();
+  const end = new Date(now);
+  end.setDate(end.getDate() + SCHEDULE_DAYS);
+  end.setHours(23, 59, 59, 999);
+  const times = timesFor(shift, workPattern);
+  const ids: string[] = [];
+
+  try {
+    for (const cursor = new Date(now); cursor <= end; cursor.setDate(cursor.getDate() + 1)) {
+      if (!isWorkday(cursor, workPattern)) continue;
+      const checkIn = atLocalTime(cursor, times.checkIn);
+      const checkOut = atLocalTime(cursor, times.checkOut);
+      if (checkIn.getTime() > now.getTime()) ids.push(await scheduleOne(checkIn, 'check-in'));
+      if (checkOut.getTime() > now.getTime()) ids.push(await scheduleOne(checkOut, 'check-out'));
+    }
+
+    if (ids.length === 0) return { ok: false, reason: 'schedule-failed' };
+    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify({
+      signature,
+      ids,
+      scheduledUntil: end.toISOString(),
+      version: SCHEDULER_VERSION,
+    } satisfies StoredReminders));
+    return { ok: true, scheduledCount: ids.length };
+  } catch {
+    await Promise.allSettled(ids.map(id => Notifications.cancelScheduledNotificationAsync(id)));
+    await AsyncStorage.removeItem(STORAGE_KEY);
+    return { ok: false, reason: 'schedule-failed' };
+  }
 }
 
 export async function cancelAttendanceReminders() {
@@ -112,6 +170,7 @@ export async function notifyRecapDownloadComplete(fileName: string) {
       title: 'Download Rekap Selesai',
       body: `${fileName} selesai dibuat.`,
       sound: 'default',
+      priority: Notifications.AndroidNotificationPriority.HIGH,
     },
     trigger: null,
   });
