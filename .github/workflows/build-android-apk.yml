@@ -39,9 +39,16 @@ jobs:
       - name: Generate Android project
         run: npx expo prebuild --platform android --non-interactive
       - name: Build standalone release APK
-        run: cd android && chmod +x gradlew && ./gradlew assembleRelease --no-daemon
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleRelease --no-daemon
+      - name: Rename APK with app version
+        run: |
+          VERSION=$(node -p "require('./app.json').expo.version")
+          cp android/app/build/outputs/apk/release/app-release.apk "android/app/build/outputs/apk/release/KEMOB-KW-v${VERSION}.apk"
       - uses: actions/upload-artifact@v4
         with:
           name: KEMOB-KW-release-apk
-          path: android/app/build/outputs/apk/release/app-release.apk
+          path: android/app/build/outputs/apk/release/KEMOB-KW-v*.apk
           if-no-files-found: error
