@@ -47,8 +47,8 @@ export default function Attendance() {
     try {
       const [preference, rows] = await Promise.all([ownWorkPreference(), ownAttendance(requestedDate, requestedDate)]);
       const row = rows[0] ?? null;
-      setShift(row?.shift_label ?? preference.shift);
-      setWorkPattern(row?.work_pattern ?? preference.workPattern);
+      setShift(preference.shift);
+      setWorkPattern(preference.workPattern);
       setAttendance(row);
       setCheckIn(row?.check_in?.slice(0, 5) ?? '');
       setCheckOut(row?.check_out?.slice(0, 5) ?? '');
@@ -99,7 +99,7 @@ export default function Attendance() {
   const saveReport = async () => {
     if (!activity.trim()) return setMessage('Kegiatan harian wajib diisi.');
     setBusy(true); setMessage('');
-    try { await addDailyReport({ date: requestedDate, activity, result, note: reportNote }); setMessage('Laporan harian berhasil disimpan.'); }
+    try { await addDailyReport({ date: requestedDate, activity, result: isToday ? result : '', note: isToday ? reportNote : '' }); setMessage('Laporan harian berhasil disimpan.'); }
     catch { setMessage('Laporan harian belum dapat disimpan.'); }
     finally { setBusy(false); }
   };
@@ -110,7 +110,7 @@ export default function Attendance() {
   return <KeyboardScroll style={s.page} contentContainerStyle={s.content}>
     <Text style={s.title}>{isToday ? 'Absen Hari Ini' : 'Isi Kekurangan Absen'}</Text>
     <Text style={s.date}>{requestedDate}</Text>
-    <View style={s.scheduleCard}><Text style={s.scheduleTitle}>{workPattern} · Shift {shift}</Text><Text style={s.scheduleText}>{schedule ? `Jam kerja ${schedule}` : 'Bukan hari kerja'}</Text></View>
+    <View style={s.scheduleCard}><Text style={s.scheduleTitle}>Shift {shift}</Text><Text style={s.scheduleText}>{schedule ? `Jam kerja ${schedule}` : 'Bukan hari kerja'}</Text></View>
     {isAbsence ? <View style={s.infoCard}><Text style={s.infoTitle}>Pengajuan Tidak Hadir</Text><Text>{attendance?.status}</Text>{!!attendance?.note && <Text style={s.muted}>{attendance.note}</Text>}</View> : isToday ? <>
       <View style={s.card}><Text style={s.step}>Jam Masuk</Text>{attendance?.check_in ? <><Text style={s.time}>{attendance.check_in.slice(0, 5)}</Text><Text style={[s.result, attendance.late_minutes > 0 && s.warning]}>{checkInResult(attendance.late_minutes)}</Text></> : <Pressable disabled={busy || !schedule} style={[s.button, (busy || !schedule) && s.disabled]} onPress={tapCheckIn}><Text style={s.buttonText}>Tap Absen Masuk</Text></Pressable>}</View>
       <View style={s.card}><Text style={s.step}>Jam Pulang</Text>{attendance?.check_out ? <><Text style={s.time}>{attendance.check_out.slice(0, 5)}</Text><Text style={[s.result, attendance.early_leave_minutes > 0 && s.warning]}>{checkOutResult(attendance.early_leave_minutes)}</Text></> : <Pressable disabled={busy || !attendance?.check_in} style={[s.button, (busy || !attendance?.check_in) && s.disabled]} onPress={tapCheckOut}><Text style={s.buttonText}>{attendance?.check_in ? 'Tap Absen Pulang' : 'Absen masuk terlebih dahulu'}</Text></Pressable>}</View>
@@ -123,8 +123,8 @@ export default function Attendance() {
     {!!attendance?.check_out && !isAbsence && <View style={s.reportCard}>
       <Text style={s.reportTitle}>Laporan Harian</Text><Text style={s.muted}>Diisi setelah absen pulang.</Text>
       <Text style={s.label}>Kegiatan</Text><TextInput style={[s.input,s.area]} multiline value={activity} onChangeText={setActivity} placeholder="Uraikan kegiatan yang dilakukan" />
-      <Text style={s.label}>Hasil</Text><TextInput style={s.input} value={result} onChangeText={setResult} placeholder="Hasil kegiatan (opsional)" />
-      <Text style={s.label}>Catatan</Text><TextInput style={s.input} value={reportNote} onChangeText={setReportNote} placeholder="Catatan tambahan (opsional)" />
+      {isToday && <><Text style={s.label}>Hasil</Text><TextInput style={s.input} value={result} onChangeText={setResult} placeholder="Hasil kegiatan (opsional)" />
+      <Text style={s.label}>Catatan</Text><TextInput style={s.input} value={reportNote} onChangeText={setReportNote} placeholder="Catatan tambahan (opsional)" /></>}
       <Pressable disabled={busy} style={[s.button,busy && s.disabled]} onPress={saveReport}><Text style={s.buttonText}>Simpan Laporan Harian</Text></Pressable>
     </View>}
     {!!message && <Text style={s.message}>{message}</Text>}

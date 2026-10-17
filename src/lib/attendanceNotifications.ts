@@ -4,8 +4,8 @@ import { Platform } from 'react-native';
 import type { ShiftLabel, WorkPattern } from './types';
 
 const STORAGE_KEY = 'kemob-attendance-notification-ids';
-const CHANNEL_ID = 'attendance-reminders-v2';
-const SCHEDULER_VERSION = 2;
+const CHANNEL_ID = 'attendance-reminders-v3';
+const SCHEDULER_VERSION = 3;
 const SCHEDULE_DAYS = 90;
 const RESCHEDULE_WHEN_DAYS_LEFT = 14;
 
@@ -23,12 +23,12 @@ export type ReminderScheduleResult =
 const timesFor = (shift: ShiftLabel, workPattern: WorkPattern) => {
   if (workPattern === 'Opsi 1') {
     return shift === 'Pagi'
-      ? { checkIn: [6, 20], checkOut: [14, 30] }
-      : { checkIn: [8, 50], checkOut: [17, 0] };
+      ? { checkIn: [6, 15], checkOut: [14, 30] }
+      : { checkIn: [8, 45], checkOut: [17, 0] };
   }
   return shift === 'Pagi'
-    ? { checkIn: [6, 20], checkOut: [13, 0] }
-    : { checkIn: [10, 20], checkOut: [17, 0] };
+    ? { checkIn: [6, 15], checkOut: [13, 0] }
+    : { checkIn: [10, 15], checkOut: [17, 0] };
 };
 
 const isWorkday = (date: Date, workPattern: WorkPattern) => {
@@ -85,7 +85,7 @@ async function scheduleOne(date: Date, kind: 'check-in' | 'check-out') {
     content: {
       title: isCheckIn ? 'Pengingat Absen Masuk' : 'Pengingat Absen Pulang',
       body: isCheckIn
-        ? 'Jam masuk 10 menit lagi. Jangan lupa tap absen masuk di KEMOB KW.'
+        ? 'Jam masuk 15 menit lagi. Jangan lupa tap absen masuk di KEMOB KW.'
         : 'Jam kerja sudah selesai. Jangan lupa tap absen pulang di KEMOB KW.',
       sound: 'default',
       priority: Notifications.AndroidNotificationPriority.MAX,

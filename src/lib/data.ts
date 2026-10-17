@@ -147,6 +147,12 @@ export async function workCalendar(from: string, to: string, workPattern?: WorkP
   return (data ?? []).filter(row => workPattern !== 'Opsi 1' || new Date(`${row.work_date}T00:00:00`).getDay() !== 6);
 }
 
+export async function workCalendarAll(from: string, to: string) {
+  const { data, error } = await supabase.from('work_calendar').select('work_date,is_workday,description').gte('work_date', from).lte('work_date', to).order('work_date');
+  if (error) throw error;
+  return data ?? [];
+}
+
 export async function addDailyReport(input: { date: string; activity: string; result: string; note: string; }) {
   const employee = await currentEmployee();
   const { error } = await supabase.from('daily_reports').upsert({
