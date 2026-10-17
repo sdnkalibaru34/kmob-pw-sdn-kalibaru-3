@@ -47,8 +47,8 @@ export default function Attendance() {
     try {
       const [preference, rows] = await Promise.all([ownWorkPreference(), ownAttendance(requestedDate, requestedDate)]);
       const row = rows[0] ?? null;
-      setShift(row?.shift_label ?? preference.shift);
-      setWorkPattern(row?.work_pattern ?? preference.workPattern);
+      setShift(preference.shift);
+      setWorkPattern(preference.workPattern);
       setAttendance(row);
       setCheckIn(row?.check_in?.slice(0, 5) ?? '');
       setCheckOut(row?.check_out?.slice(0, 5) ?? '');
