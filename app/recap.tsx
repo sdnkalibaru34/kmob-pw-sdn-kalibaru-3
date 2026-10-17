@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { router, useFocusEffect } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
-import { jakartaDate, validDate } from '@/lib/date';
+import { jakartaDate } from '@/lib/date';
 import { currentEmployee, ownAttendance, ownWorkPreference, workCalendarAll } from '@/lib/data';
 import { checkInResult, checkOutResult, scheduleText } from '@/lib/schedule';
 import { supabase } from '@/lib/supabase';
@@ -55,7 +55,7 @@ export default function Recap(){
   finally{setBusy(false)}
  },[month]);
 
- useFocusEffect(useCallback(()=>{void load(month)},[load,month]));
+ useFocusEffect(useCallback(()=>{void load(month);const fallbackRefresh=setInterval(()=>{void load(month)},15000);return()=>clearInterval(fallbackRefresh)},[load,month]));
 
  useEffect(()=>{
   let active=true;
