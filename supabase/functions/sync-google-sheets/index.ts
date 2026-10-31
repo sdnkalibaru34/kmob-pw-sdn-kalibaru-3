@@ -96,6 +96,7 @@ async function ensureSheets(token: string, spreadsheetId: string, sheetNames: st
 
 Deno.serve(async (req) => {
   let stage = "validasi permintaan";
+  let queueItem: { school_id: string; sync_month: string; requested_at: string } | null = null;
   try {
     if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
     if (req.method !== "POST") return json({ error: "Gunakan metode POST." }, 405);
@@ -112,9 +113,51 @@ Deno.serve(async (req) => {
     }
 
     const requested = await req.json().catch(() => ({})) as { month?: string; schoolCode?: string };
-    const schoolCode = requested.schoolCode ?? "sdn-kalibaru-3";
     const jakartaMonth = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta", year: "numeric", month: "2-digit" }).format(new Date());
-    const month = /^\d{4}-\d{2}$/.test(requested.month ?? "") ? requested.month! : jakartaMonth;
+    let schoolCode = requested.schoolCode ?? "sdn-kalibaru-3";
+    let month = /^\d{4}-\d{2}$/.test(requested.month ?? "") ? requested.month! : jakartaMonth;
+
+    stage = "membaca data Supabase";
+    const db = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, { auth: { persistSession: false } });
+
+    // Cron hanya memproses antrean perubahan database. Sinkronisasi manual admin tetap memakai parameter sekolah/bulan.
+    if (isCron) {
+      const { data: pending, error: queueError } = await db
+        .from("google_sheets_sync_queue")
+        .select("school_id,sync_month,requested_at")
+        .is("synced_at", null)
+        .order("requested_at", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      if (queueError) throw queueError;
+      if (!pending) return json({ ok: true, skipped: true, message: "Tidak ada perubahan spreadsheet yang menunggu." });
+      const claimedAt = new Date().toISOString();
+      const staleBefore = new Date(Date.now() - 3 * 60 * 1000).toISOString();
+      const { data: claimed, error: claimError } = await db
+        .from("google_sheets_sync_queue")
+        .update({ claimed_at: claimedAt })
+        .eq("school_id", pending.school_id)
+        .eq("sync_month", pending.sync_month)
+        .eq("requested_at", pending.requested_at)
+        .is("synced_at", null)
+        .or(`claimed_at.is.null,claimed_at.lt.${staleBefore}`)
+        .select("school_id,sync_month,requested_at")
+        .maybeSingle();
+      if (claimError) throw claimError;
+      if (!claimed) return json({ ok: true, skipped: true, message: "Antrean sedang diproses." });
+      queueItem = claimed;
+      month = claimed.sync_month;
+      const { data: queuedSchool, error: queuedSchoolError } = await db
+        .from("schools")
+        .select("code")
+        .eq("id", claimed.school_id)
+        .eq("is_active", true)
+        .maybeSingle();
+      if (queuedSchoolError) throw queuedSchoolError;
+      if (!queuedSchool) throw new Error("Sekolah pada antrean sinkronisasi tidak ditemukan atau tidak aktif.");
+      schoolCode = queuedSchool.code;
+    }
+
     const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
     const lastDay = new Date(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 0).getDate();
     const from = `${month}-01`;
@@ -122,8 +165,6 @@ Deno.serve(async (req) => {
     const calendarFrom = `${month.slice(0, 4)}-01-01`;
     const calendarTo = `${month.slice(0, 4)}-12-31`;
 
-    stage = "membaca data Supabase";
-    const db = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, { auth: { persistSession: false } });
     const { data: school, error: schoolError } = await db.from("schools").select("id,code,name,spreadsheet_id").eq("code", schoolCode).eq("is_active", true).maybeSingle();
     if (schoolError) {
       console.error("Gagal membaca data sekolah:", { schoolCode, message: schoolError.message, code: schoolError.code });
@@ -190,7 +231,15 @@ Deno.serve(async (req) => {
     stage = "menulis Google Sheets";
     await ensureSheets(token, spreadsheetId, Object.keys(sheets));
     await Promise.all(Object.entries(sheets).map(([sheetName, values]) => replaceSheet(token, spreadsheetId, sheetName, values)));
-    return json({ ok: true, month, schoolCode, schoolName: school.name, rows: { employees: employees.length, attendance: attendance.length, reports: reports.length } });
+    if (queueItem) {
+      const { error: queueUpdateError } = await db.from("google_sheets_sync_queue")
+        .update({ synced_at: new Date().toISOString(), claimed_at: null, last_error: null })
+        .eq("school_id", queueItem.school_id)
+        .eq("sync_month", queueItem.sync_month)
+        .eq("requested_at", queueItem.requested_at);
+      if (queueUpdateError) console.error("Spreadsheet tersinkron, tetapi status antrean belum terbarui:", queueUpdateError.message);
+    }
+    return json({ ok: true, month, schoolCode, schoolName: school.name, queued: !!queueItem, rows: { employees: employees.length, attendance: attendance.length, reports: reports.length } });
   } catch (error) {
     console.error(error);
     const detail = error instanceof Error
@@ -198,6 +247,18 @@ Deno.serve(async (req) => {
       : typeof error === "object" && error !== null && "message" in error
         ? String((error as { message: unknown }).message)
         : "Sinkronisasi gagal.";
+    if (queueItem && SUPABASE_URL && SERVICE_ROLE_KEY) {
+      try {
+        const retryDb = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, { auth: { persistSession: false } });
+        await retryDb.from("google_sheets_sync_queue")
+          .update({ claimed_at: null, last_error: detail.slice(0, 1000) })
+          .eq("school_id", queueItem.school_id)
+          .eq("sync_month", queueItem.sync_month)
+          .eq("requested_at", queueItem.requested_at);
+      } catch (queueError) {
+        console.error("Gagal melepas klaim antrean sinkronisasi:", queueError);
+      }
+    }
     return json({ error: `${stage}: ${detail}` }, 500);
   }
 });
