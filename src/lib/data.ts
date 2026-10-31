@@ -188,7 +188,19 @@ export async function ownReportsRange(from: string, to: string): Promise<DailyRe
 
 export async function syncGoogleSheets(month: string, schoolCode = 'sdn-kalibaru-3') {
   const { data, error } = await supabase.functions.invoke('sync-google-sheets', { body: { month, schoolCode } });
-  if (error) throw error;
+  if (error) {
+    // Supabase FunctionsHttpError menyimpan Response asli pada error.context.
+    // Baca body-nya agar pesan rinci dari Edge Function tidak hilang menjadi
+    // pesan generik "Edge Function returned a non-2xx status code".
+    const context = (error as unknown as { context?: Response }).context;
+    if (context && typeof context.clone === 'function') {
+      const payload = await context.clone().json().catch(() => null) as { error?: string; message?: string } | null;
+      if (payload?.error || payload?.message) {
+        throw new Error(payload.error ?? payload.message);
+      }
+    }
+    throw error;
+  }
   if (!data?.ok) throw new Error(data?.error ?? 'Sinkronisasi Google Sheets gagal.');
   return data as { ok: true; month: string; rows: { employees: number; attendance: number; reports: number } };
 }
