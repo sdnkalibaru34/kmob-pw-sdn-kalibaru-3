@@ -125,7 +125,14 @@ Deno.serve(async (req) => {
     stage = "membaca data Supabase";
     const db = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, { auth: { persistSession: false } });
     const { data: school, error: schoolError } = await db.from("schools").select("id,code,name,spreadsheet_id").eq("code", schoolCode).eq("is_active", true).maybeSingle();
-    if (schoolError || !school) return json({ error: "Unit dinas tidak ditemukan." }, 404);
+    if (schoolError) {
+      console.error("Gagal membaca data sekolah:", { schoolCode, message: schoolError.message, code: schoolError.code });
+      return json({ error: `Gagal membaca data sekolah (${schoolCode}): ${schoolError.message}` }, 500);
+    }
+    if (!school) {
+      console.error("Sekolah aktif tidak ditemukan:", { schoolCode });
+      return json({ error: `Sekolah aktif dengan kode ${schoolCode} tidak ditemukan.` }, 404);
+    }
     const spreadsheetId = school.spreadsheet_id ?? "";
     if (!spreadsheetId) return json({ error: "Spreadsheet unit dinas ini belum dikonfigurasi." }, 503);
     const employeesResult = await db.from("employees").select("id,employee_code,full_name,position,ni_pppk,is_active").eq("school_id", school.id).order("full_name");
